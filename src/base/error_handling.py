@@ -11,10 +11,10 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, TypeVar
 
+import structlog
+
 
 F = TypeVar('F')
-
-import structlog
 
 
 logger = structlog.get_logger(__name__)
@@ -315,7 +315,7 @@ class ErrorContext:
         self.context = context
         self.start_time = None
 
-    def __enter__(self) -> "OperationTimer":
+    def __enter__(self) -> "ErrorContext":
         """컨텍스트 매니저 진입."""
         self.start_time = datetime.now(UTC)
         logger.debug(
@@ -323,7 +323,7 @@ class ErrorContext:
         )
         return self
 
-    def __exit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: Any) -> None:
+    def __exit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: Any) -> bool:
         """컨텍스트 매니저 종료."""
         duration = (datetime.now(UTC) - self.start_time).total_seconds()
 

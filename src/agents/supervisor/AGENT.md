@@ -45,6 +45,7 @@ The Supervisor implements three main patterns:
 ## Configuration
 
 Requires environment variables for agent URLs:
+
 - `PLANNER_URL`
 - `DATA_COLLECTOR_URL`
 - `ANALYSIS_URL`
@@ -52,7 +53,7 @@ Requires environment variables for agent URLs:
 
 -----
 
-## =Ú Related Documentation
+## =ï¿½ Related Documentation
 
 ### Navigation
 

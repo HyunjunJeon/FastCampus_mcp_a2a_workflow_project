@@ -1,7 +1,7 @@
-"""Task Executor Agent with LangGraph.
+"""LangGraph 기반 작업 실행 에이전트.
 
-This module implements a task execution agent using create_react_agent
-that uses various MCP tools like Notion to perform general automation tasks.
+이 모듈은 create_react_agent를 사용하여 다양한 MCP 도구(예: Notion)를
+활용해 일반 자동화 작업을 수행하는 작업 실행 에이전트를 구현한다.
 """
 
 from datetime import datetime
@@ -58,7 +58,7 @@ async def create_executor_agent(
                 'executor'
             )
             _, tools = await create_mcp_client_and_tools(server_configs)
-            logger.info(f'✅ Loaded {len(tools)} MCP tools for Executor Agent')
+            logger.info(f'Loaded {len(tools)} MCP tools for Executor Agent')
         except Exception as e:
             logger.warning(f'MCP server not available: {e}')
             logger.info('Using empty tools list for testing')
@@ -84,9 +84,7 @@ async def create_executor_agent(
             debug=is_debug,
         )
 
-        logger.info(
-            '✅ Executor Agent created successfully with create_react_agent'
-        )
+        logger.info('Executor Agent created successfully with create_react_agent')
         return agent
     except Exception as e:
         logger.error(f'Failed to create Executor Agent: {e}')
@@ -158,9 +156,7 @@ async def execute_task(
             for msg in ai_messages
         )
 
-        logger.info(
-            f'[TaskExecutorAgent] 작업 실행 완료: {task_type or "general"}'
-        )
+        logger.info(f'[TaskExecutorAgent] 작업 실행 완료: {task_type or "general"}')
         logger.info(f'[TaskExecutorAgent] 도구 호출 횟수: {tool_calls_made}')
         logger.info(f'[TaskExecutorAgent] 총 메시지 수: {len(messages_list)}')
 
@@ -183,7 +179,7 @@ async def execute_task(
         }
 
     except Exception as e:
-        logger.error(f'❌ create_react_agent 기반 작업 실행 실패: {e}')
+        logger.error(f'create_react_agent 기반 작업 실행 실패: {e}')
         return {
             'success': False,
             'result': None,

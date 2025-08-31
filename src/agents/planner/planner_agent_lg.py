@@ -1,7 +1,7 @@
-"""Planner Agent with LangGraph.
+"""LangGraph 기반 플래너 에이전트.
 
-This module implements a planning agent using create_react_agent that decomposes
-complex user requests into structured, executable tasks.
+이 모듈은 create_react_agent를 사용하여 복잡한 사용자 요청을
+구조화되고 실행 가능한 작업으로 분해하는 계획 수립 에이전트를 구현한다.
 """
 
 from datetime import datetime

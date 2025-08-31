@@ -23,12 +23,10 @@ def create_cors_enabled_app(a2a_app: A2AStarletteApplication) -> Starlette:
     # 새로운 Starlette 앱 생성
     app = Starlette()
 
-    # CORS 미들웨어를 먼저 추가 (순서 중요!)
+    # CORS 미들웨어를 먼저 추가
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            '*'  # 개발 환경에서는 모든 origin 허용
-        ],
+        allow_origins=['*'],
         allow_credentials=True,
         allow_methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
         allow_headers=['*'],
@@ -49,10 +47,6 @@ def get_cors_config() -> dict:
     """
     return {
         'allow_origins': [
-            'http://localhost:3000',
-            'http://localhost:3001',
-            'http://127.0.0.1:3000',
-            'http://127.0.0.1:3001',
             '*',
         ],
         'allow_credentials': True,

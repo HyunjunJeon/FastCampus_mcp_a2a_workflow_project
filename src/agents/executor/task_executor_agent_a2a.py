@@ -1,7 +1,7 @@
-"""Task Executor Agent A2A Wrapper.
+"""작업 실행 에이전트 A2A 래퍼.
 
-This module provides an A2A protocol wrapper for the Task Executor Agent,
-enabling it to work with the A2A communication protocol.
+이 모듈은 Task Executor 에이전트를 A2A 통신 프로토콜과 호환되도록 감싸는
+래퍼 구현을 제공한다.
 """
 
 import asyncio
@@ -37,10 +37,10 @@ logger = structlog.get_logger(__name__)
 
 
 class TaskExecutorA2AAgent(BaseA2AAgent):
-    """A2A wrapper for the Task Executor Agent.
+    """작업 실행 에이전트용 A2A 래퍼.
 
-    This class wraps the LangGraph TaskExecutorAgent to provide
-    A2A protocol compatibility for general task execution operations.
+    LangGraph 기반 TaskExecutorAgent 를 감싸 일반 작업 실행을
+    A2A 프로토콜과 호환되도록 제공한다.
     """
 
     def __init__(
@@ -49,12 +49,12 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
         check_pointer: Any | None = None,
         is_debug: bool = False,
     ) -> None:
-        """Initialize the Task Executor A2A Agent.
+        """작업 실행 A2A 에이전트 초기화.
 
         Args:
-            model: LLM model for task analysis
-            check_pointer: Checkpoint manager
-            is_debug: Debug mode flag
+            model: 작업 분석에 사용할 LLM 모델
+            check_pointer: 체크포인트 관리자
+            is_debug: 디버그 모드 여부
         """
         super().__init__()
 
@@ -77,7 +77,7 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
         logger.info('TaskExecutorA2AAgent initialized')
 
     async def initialize(self) -> bool:
-        """Initialize the executor agent asynchronously."""
+        """작업 실행 에이전트를 비동기로 초기화한다."""
         try:
             if self.graph is None:
                 self.graph = await create_executor_agent(
@@ -94,14 +94,14 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
     async def execute_for_a2a(
         self, input_dict: dict[str, Any], config: dict[str, Any] | None = None
     ) -> A2AOutput:
-        """Execute the Task Executor Agent with A2A-compatible input and output.
+        """A2A 호환 입력/출력 규격으로 작업 실행 에이전트를 실행한다.
 
         Args:
-            input_dict: Input data containing messages and task details
-            config: Optional configuration
+            input_dict: 메시지 및 작업 세부 정보가 포함된 입력 데이터
+            config: 선택적 실행 구성
 
         Returns:
-            A2AOutput: Standardized output for A2A processing
+            A2AOutput: A2A 처리 표준 출력
         """
         try:
             logger.info(
@@ -274,7 +274,7 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
                 ):
                     return self.create_a2a_output(
                         status='working',
-                        text_content=f'도구 사용: {tool_name}',
+                        text_content=f'도구 실행 시작: {tool_name}',
                         metadata={
                             'event_type': 'tool_start',
                             'tool_name': tool_name,
@@ -342,13 +342,13 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
             return None
 
     def extract_final_output(self, state: dict[str, Any]) -> A2AOutput:
-        """Extract final output from the agent's state.
+        """에이전트 상태에서 최종 출력을 추출한다.
 
         Args:
-            state: Final state from the LangGraph execution
+            state: LangGraph 실행이 완료된 최종 상태
 
         Returns:
-            A2AOutput: Final standardized output
+            A2AOutput: 표준 최종 출력
         """
         try:
             workflow_phase = state.get('workflow_phase', 'unknown')

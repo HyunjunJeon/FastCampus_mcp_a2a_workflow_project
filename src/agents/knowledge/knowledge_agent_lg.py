@@ -1,7 +1,7 @@
-"""Memory Agent with LangGraph.
+"""LangGraph 기반 지식(메모리) 에이전트.
 
-This module implements a memory management agent using create_react_agent
-that uses OpenMemory MCP to store, retrieve, and manage user information.
+이 모듈은 create_react_agent를 사용하여 OpenMemory MCP 도구로
+사용자 정보를 저장, 조회, 관리하는 지식(메모리) 에이전트를 구현한다.
 """
 
 from datetime import datetime

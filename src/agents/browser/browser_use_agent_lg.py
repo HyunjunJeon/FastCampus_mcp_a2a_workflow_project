@@ -1,7 +1,7 @@
-"""Browser Agent with LangGraph.
+"""LangGraph 기반 브라우저 에이전트.
 
-This module implements a browser automation agent using create_react_agent
-that uses Playwright MCP to perform web-based tasks.
+이 모듈은 create_react_agent를 사용하여 브라우저 자동화 에이전트를 구현하며,
+Playwright MCP 도구를 활용해 웹 기반 작업을 수행한다.
 """
 
 import os
@@ -71,7 +71,7 @@ async def create_browser_agent(
                 _, tools = await create_mcp_client_and_tools(
                     server_configs
                 )
-                logger.info(f'✅ Loaded {len(tools)} MCP tools for Browser Agent')
+                logger.info(f'Loaded {len(tools)} MCP tools for Browser Agent')
             except Exception as e:
                 logger.warning(f'MCP server not available: {e}')
                 logger.info('Using empty tools list for testing')
@@ -97,9 +97,7 @@ async def create_browser_agent(
             version='v1',  # Parallel tool calls = False
         )
 
-        logger.info(
-            '✅ Browser Agent created successfully with create_react_agent'
-        )
+        logger.info('Browser Agent created successfully with create_react_agent')
         return agent
     except Exception as e:
         logger.error(f'Failed to create Browser Agent: {e}')
@@ -169,11 +167,11 @@ async def browse_web(
             for msg in ai_messages
         )
 
-        logger.info('🎯 create_react_agent 기반 브라우저 작업 완료')
-        logger.info(f'   → 작업 유형: {action_type or "general"}')
-        logger.info(f'   → URL: {url or "N/A"}')
-        logger.info(f'   → 도구 호출 횟수: {tool_calls_made}')
-        logger.info(f'   → 총 메시지 수: {len(messages_list)}')
+        logger.info('create_react_agent 기반 브라우저 작업 완료')
+        logger.info(f'작업 유형: {action_type or "general"}')
+        logger.info(f'URL: {url or "N/A"}')
+        logger.info(f'도구 호출 횟수: {tool_calls_made}')
+        logger.info(f'총 메시지 수: {len(messages_list)}')
 
         # 실행 결과 Dictionary 반환
         return {
@@ -194,7 +192,7 @@ async def browse_web(
         }
 
     except Exception as e:
-        logger.error(f'❌ create_react_agent 기반 브라우저 작업 실패: {e}')
+        logger.error(f'create_react_agent 기반 브라우저 작업 실패: {e}')
         return {
             'success': False,
             'result': None,

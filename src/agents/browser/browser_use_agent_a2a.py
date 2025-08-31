@@ -1,7 +1,7 @@
-"""Browser Agent A2A Wrapper.
+"""브라우저 에이전트 A2A 래퍼.
 
-This module provides an A2A protocol wrapper for the Browser Agent,
-enabling it to work with the A2A communication protocol.
+이 모듈은 Browser 에이전트를 A2A 통신 프로토콜과 호환되도록 감싸는
+래퍼 구현을 제공한다.
 """
 
 import asyncio
@@ -35,10 +35,10 @@ logger = structlog.get_logger(__name__)
 
 
 class BrowserUseA2AAgent(BaseA2AAgent):
-    """A2A wrapper for the Browser Agent.
+    """브라우저 에이전트용 A2A 래퍼.
 
-    This class wraps the LangGraph BrowserUseAgent to provide
-    A2A protocol compatibility for browser automation operations.
+    LangGraph 기반 BrowserUseAgent 를 감싸 브라우저 자동화 작업을
+    A2A 프로토콜과 호환되도록 제공한다.
     """
 
     def __init__(
@@ -47,12 +47,12 @@ class BrowserUseA2AAgent(BaseA2AAgent):
         check_pointer=None,
         is_debug: bool = False,
     ) -> None:
-        """Initialize the Browser A2A Agent.
+        """브라우저 A2A 에이전트 초기화.
 
         Args:
-            model: LLM model for task analysis
-            check_pointer: Checkpoint manager
-            is_debug: Debug mode flag
+            model: 작업 분석에 사용할 LLM 모델
+            check_pointer: 체크포인트 관리자
+            is_debug: 디버그 모드 여부
         """
         super().__init__()
 
@@ -77,7 +77,7 @@ class BrowserUseA2AAgent(BaseA2AAgent):
         logger.info("BrowserUseA2AAgent initialized")
 
     async def initialize(self) -> bool:
-        """Initialize the browser agent asynchronously."""
+        """브라우저 에이전트를 비동기로 초기화한다."""
         try:
             if self.graph is None:
                 self.graph = await create_browser_agent(
@@ -96,14 +96,14 @@ class BrowserUseA2AAgent(BaseA2AAgent):
         input_dict: dict[str, Any],
         config: dict[str, Any] | None = None
     ) -> A2AOutput:
-        """Execute the Browser Agent with A2A-compatible input and output.
+        """A2A 호환 입력/출력 규격으로 브라우저 에이전트를 실행한다.
 
         Args:
-            input_dict: Input data containing messages and browser task
-            config: Optional configuration
+            input_dict: 메시지와 브라우저 작업 정보가 포함된 입력 데이터
+            config: 선택적 실행 구성
 
         Returns:
-            A2AOutput: Standardized output for A2A processing
+            A2AOutput: A2A 처리 표준 출력
         """
         try:
             logger.info(f"Executing BrowserUseA2AAgent with input: {input_dict}")
@@ -169,13 +169,13 @@ class BrowserUseA2AAgent(BaseA2AAgent):
         self,
         event: dict[str, Any]
     ) -> A2AOutput | None:
-        """Convert a streaming event to standardized A2A output.
+        """스트리밍 이벤트를 표준 A2A 출력으로 변환한다.
 
         Args:
-            event: Raw streaming event from LangGraph
+            event: LangGraph 로부터 수신한 원시 스트리밍 이벤트
 
         Returns:
-            A2AOutput if the event should be forwarded, None otherwise
+            전달할 이벤트라면 A2AOutput, 아니면 None
         """
         try:
             event_type = event.get("event", "")
@@ -271,13 +271,13 @@ class BrowserUseA2AAgent(BaseA2AAgent):
         self,
         state: dict[str, Any]
     ) -> A2AOutput:
-        """Extract final output from the agent's state.
+        """에이전트 상태에서 최종 출력을 추출한다.
 
         Args:
-            state: Final state from the LangGraph execution
+            state: LangGraph 실행이 완료된 최종 상태
 
         Returns:
-            A2AOutput: Final standardized output
+            A2AOutput: 표준 최종 출력
         """
         try:
             workflow_phase = state.get("workflow_phase", "unknown")
@@ -364,13 +364,13 @@ class BrowserUseA2AAgent(BaseA2AAgent):
             return self.format_error(e, "Failed to extract browser operation results")
 
     def _get_node_display_name(self, node_name: str) -> str:
-        """Get display-friendly name for a node.
+        """노드에 대한 표시용 이름을 반환한다.
 
         Args:
-            node_name: Internal node name
+            node_name: 내부 노드 이름
 
         Returns:
-            str: Display-friendly name
+            str: 사용자 친화적인 표시 이름
         """
         display_names = {
             "analyze_task": "행 중 �",
@@ -386,8 +386,8 @@ class BrowserUseA2AAgent(BaseA2AAgent):
     def get_agent_card(self, url: str) -> AgentCard:
         """A2A AgentCard 생성.
 
-        AgentCard는 에이전트의 메타데이터와 기능을 설명하는 표준화된 문서입니다.
-        다른 에이전트나 시스템이 이 에이전트의 기능을 이해하고 상호작용할 수 있도록 합니다.
+        AgentCard는 에이전트의 메타데이터와 기능을 설명하는 표준화된 문서이다.
+        다른 에이전트나 시스템이 이 에이전트의 기능을 이해하고 상호작용할 수 있도록 한다.
 
         Args:
             url: 에이전트 서버의 기본 URL
@@ -439,15 +439,15 @@ async def create_browser_use_a2a_agent(
     is_debug: bool = False,
     check_pointer=None,
 ) -> BrowserUseA2AAgent:
-    """Create and initialize a Browser A2A Agent.
+    """브라우저 A2A 에이전트를 생성하고 초기화한다.
 
     Args:
-        model: LLM model
-        is_debug: Debug mode flag
-        check_pointer: Checkpoint manager
+        model: LLM 모델
+        is_debug: 디버그 모드 여부
+        check_pointer: 체크포인터 관리자
 
     Returns:
-        BrowserUseA2AAgent: Initialized A2A agent instance
+        BrowserUseA2AAgent: 초기화된 A2A 에이전트 인스턴스
     """
     return BrowserUseA2AAgent(
         model=model,
@@ -469,7 +469,7 @@ def main() -> None:
     async def async_init():
         """비동기 초기화 헬퍼 함수.
 
-        MCP 서버와의 비동기 연결이 필요하므로 별도의 비동기 함수로 분리.
+        MCP 서버와의 비동기 연결이 필요하므로 별도의 비동기 함수로 분리한다.
 
         Returns:
             BrowserUseA2AAgent: 초기화된 A2A 래퍼 인스턴스 또는 None
@@ -480,10 +480,10 @@ def main() -> None:
 
             # 비동기 초기화 실행 및 결과 확인
             if not await _a2a_wrapper.initialize():
-                logger.error("❌ BrowserAgentA2A 초기화 실패")
+                logger.error("BrowserAgentA2A 초기화 실패")
                 return None
 
-            logger.info("✅ BrowserAgentA2A 초기화 완료")
+            logger.info("BrowserAgentA2A 초기화 완료")
             return _a2a_wrapper
 
         except Exception as e:
@@ -523,9 +523,9 @@ def main() -> None:
         )
 
         # 서버 시작 정보 로깅
-        logger.info(f"✅ BrowserAgent A2A server starting at {url} with CORS enabled")
-        logger.info(f"📋 Agent Card URL: {url}/.well-known/agent-card.json")  # A2A 표준 메타데이터 엔드포인트
-        logger.info(f"🩺 Health Check: {url}/health")  # 헬스체크 엔드포인트
+        logger.info(f"BrowserAgent A2A 서버 시작: {url} (CORS 사용)")
+        logger.info(f"Agent Card URL: {url}/.well-known/agent-card.json")  # A2A 표준 메타데이터 엔드포인트
+        logger.info(f"Health Check: {url}/health")  # 헬스체크 엔드포인트
 
         # uvicorn 서버 직접 실행
         config = uvicorn.Config(

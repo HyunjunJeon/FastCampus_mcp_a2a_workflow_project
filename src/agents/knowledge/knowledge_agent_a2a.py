@@ -1,7 +1,7 @@
-"""Memory Agent A2A Wrapper.
+"""지식(메모리) 에이전트 A2A 래퍼.
 
-This module provides an A2A protocol wrapper for the Memory Agent,
-enabling it to work with the A2A communication protocol.
+이 모듈은 Memory/Knowledge 에이전트를 A2A 통신 프로토콜과 호환되도록 감싸는
+래퍼 구현을 제공한다.
 """
 
 import asyncio
@@ -16,7 +16,6 @@ import uvicorn
 
 from a2a.types import AgentCard
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from src.a2a_integration.a2a_lg_server_utils import (
@@ -34,10 +33,10 @@ logger = structlog.get_logger(__name__)
 
 
 class KnowledgeA2AAgent(BaseA2AAgent):
-    """A2A wrapper for the Memory Agent.
+    """지식(메모리) 에이전트용 A2A 래퍼.
 
-    This class wraps the LangGraph MemorizeAgent to provide
-    A2A protocol compatibility for memory management operations.
+    LangGraph 기반 메모리 관리 에이전트를 감싸 지식(메모리) 작업을
+    A2A 프로토콜과 호환되도록 제공한다.
     """
 
     def __init__(
@@ -60,7 +59,7 @@ class KnowledgeA2AAgent(BaseA2AAgent):
         logger.info('KnowledgeA2AAgent initialized')
 
     async def initialize(self) -> bool:
-        """Initialize the knowledge agent asynchronously."""
+        """지식(메모리) 에이전트를 비동기로 초기화한다."""
         try:
             if self.graph is None:
                 self.graph = await create_knowledge_agent()
@@ -75,14 +74,14 @@ class KnowledgeA2AAgent(BaseA2AAgent):
         input_dict: dict[str, Any],
         config: dict[str, Any] | None = None,
     ) -> A2AOutput:
-        """Execute the Memory Agent with A2A-compatible input and output.
+        """A2A 호환 입력/출력 규격으로 지식(메모리) 에이전트를 실행한다.
 
         Args:
-            input_dict: Input data containing messages and memory request
-            config: Optional configuration
+            input_dict: 메시지와 메모리 요청이 포함된 입력 데이터
+            config: 선택적 실행 구성
 
         Returns:
-            A2AOutput: Standardized output for A2A processing
+            A2AOutput: A2A 처리 표준 출력
         """
         try:
             logger.info(f'Executing KnowledgeA2AAgent with input: {input_dict}')
@@ -112,13 +111,13 @@ class KnowledgeA2AAgent(BaseA2AAgent):
             return self.format_error(e, 'Memory operation failed')
 
     def format_stream_event(self, event: dict[str, Any]) -> A2AOutput | None:
-        """Convert a streaming event to standardized A2A output.
+        """스트리밍 이벤트를 표준 A2A 출력으로 변환한다.
 
         Args:
-            event: Raw streaming event from LangGraph
+            event: LangGraph 로부터 수신한 원시 스트리밍 이벤트
 
         Returns:
-            A2AOutput if the event should be forwarded, None otherwise
+            전달할 이벤트라면 A2AOutput, 아니면 None
         """
         try:
             event_type = event.get('event', '')
@@ -174,7 +173,7 @@ class KnowledgeA2AAgent(BaseA2AAgent):
             if self.is_completion_event(event):
                 return self.create_a2a_output(
                     status='completed',
-                    text_content='지식(메모리) Operation 작업이 완료되었습니다.',
+                    text_content='지식(메모리) 작업이 완료되었습니다.',
                     metadata={
                         'event_type': 'completion',
                         'timestamp': datetime.now(pytz.UTC).isoformat(),
@@ -190,13 +189,13 @@ class KnowledgeA2AAgent(BaseA2AAgent):
             return None
 
     def extract_final_output(self, state: dict[str, Any]) -> A2AOutput:
-        """Extract final output from the agent's state.
+        """에이전트 상태에서 최종 출력을 추출한다.
 
         Args:
-            state: Final state from the LangGraph execution
+            state: LangGraph 실행이 완료된 최종 상태
 
         Returns:
-            A2AOutput: Final standardized output
+            A2AOutput: 표준 최종 출력
         """
         try:
             # Prepare data content with memory operation results
@@ -291,8 +290,8 @@ class KnowledgeA2AAgent(BaseA2AAgent):
     def get_agent_card(self, url: str) -> AgentCard:
         """A2A AgentCard 생성.
 
-        AgentCard는 에이전트의 메타데이터와 기능을 설명하는 표준화된 문서입니다.
-        다른 에이전트나 시스템이 이 에이전트의 기능을 이해하고 상호작용할 수 있도록 합니다.
+        AgentCard는 에이전트의 메타데이터와 기능을 설명하는 표준화된 문서이다.
+        다른 에이전트나 시스템이 이 에이전트의 기능을 이해하고 상호작용할 수 있도록 한다.
 
         Args:
             url: 에이전트 서버의 기본 URL
@@ -321,7 +320,7 @@ class KnowledgeA2AAgent(BaseA2AAgent):
         )
 
 def main() -> None:
-    """AnalysisAgent A2A 서버 실행.
+    """KnowledgeAgent A2A 서버 실행.
 
     이 함수는 서버 실행의 진입점으로, 다음 작업을 수행합니다:
     1. 로깅 설정
@@ -387,9 +386,9 @@ def main() -> None:
         )
 
         # 서버 시작 정보 로깅
-        logger.info(f"✅ KnowledgeAgent A2A server starting at {url} with CORS enabled")
-        logger.info(f"📋 Agent Card URL: {url}/.well-known/agent-card.json")  # A2A 표준 메타데이터 엔드포인트
-        logger.info(f"🩺 Health Check: {url}/health")  # 헬스체크 엔드포인트
+        logger.info(f"KnowledgeAgent A2A 서버 시작: {url} (CORS 사용)")
+        logger.info(f"Agent Card URL: {url}/.well-known/agent-card.json")  # A2A 표준 메타데이터 엔드포인트
+        logger.info(f"Health Check: {url}/health")  # 헬스체크 엔드포인트
 
         # uvicorn 서버 직접 실행
         config = uvicorn.Config(

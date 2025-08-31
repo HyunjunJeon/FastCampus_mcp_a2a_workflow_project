@@ -1,19 +1,20 @@
-"""Agent Prompts Collection.
+"""에이전트 프롬프트 모음.
 
-This module contains system prompts for various agents in the multi-agent system.
+멀티 에이전트 시스템에서 사용되는 다양한 에이전트의 시스템 프롬프트를
+제공한다. 주의: 실제 프롬프트 문자열 본문은 영문으로 유지된다.
 """
 
 
 def get_prompt(agent_type: str, prompt_type: str = 'system', **kwargs) -> str:
-    """Get prompt for a specific agent type.
+    """에이전트 유형에 맞는 프롬프트를 반환한다.
 
     Args:
-        agent_type: Type of agent ("planner", "supervisor", "analysis", etc.)
-        prompt_type: Type of prompt ("system", "user", etc.)
-        **kwargs: Additional parameters for prompt formatting
+        agent_type: 에이전트 유형 ("planner", "supervisor", "analysis" 등)
+        prompt_type: 프롬프트 유형 ("system", "user" 등)
+        **kwargs: 프롬프트 문자열 포매팅에 필요한 추가 매개변수
 
     Returns:
-        str: Formatted prompt
+        str: 포매팅된 프롬프트 문자열
     """
     # Define prompt functions (lazy evaluation)
     prompt_functions = {

@@ -1,7 +1,7 @@
 """Simplified configuration and models for A2A integration."""
 
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LangGraphExecutorConfig(BaseModel):
@@ -9,6 +9,10 @@ class LangGraphExecutorConfig(BaseModel):
 
     Focuses only on essential settings without over-engineering.
     """
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+    )
 
     # Core settings
     enable_streaming: bool = Field(
@@ -34,8 +38,3 @@ class LangGraphExecutorConfig(BaseModel):
         default=None,
         description='Additional configuration for custom strategies and processors',
     )
-
-    class Config:
-        """Pydantic configuration."""
-
-        validate_assignment = True

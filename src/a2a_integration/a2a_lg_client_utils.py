@@ -1,7 +1,28 @@
 """A2A Client Manager V2 - A2A 클라이언트.
 
-A2A 표준 스펙에 충실하면서 사용하기 쉽고 안정적인 API를 제공합니다.
-TextPart, DataPart, FilePart를 모두 지원.
+이 모듈은 A2A(AI-to-AI) 표준 프로토콜을 따르는 클라이언트 유틸리티를 제공합니다.
+핵심 설계 목표는 다음과 같습니다.
+
+1) 안정성: 전송/폴링/재시도/에러 처리까지 엔진 레벨에서 일관성 있게 관리합니다.
+2) 단순성: 텍스트/데이터/파일 Part를 하나의 통합 인터페이스로 다룰 수 있습니다.
+3) 실무성: 스트리밍/폴링 혼합 환경, Docker 로컬 개발 URL 변환 등 현실적인 사용 시나리오를 지원합니다.
+
+주요 구성 요소
+- A2AMessageEngine: 메시지 전송, 이벤트 처리, 재시도, Task 폴링을 담당하는 핵심 엔진
+- A2ATextClient / A2ADataClient / A2AFileClient: 각 입력 타입에 특화된 경량 래퍼
+- A2AClientManager: 엔진과 특화 클라이언트를 통합해 간편한 사용성을 제공
+
+설계 상의 중요한 결정
+- Task 캐싱 비활성화: 일부 서버 구현에서 완료된 Task의 artifacts/history를
+  즉시/완전하게 되돌려주지 않는 문제가 있어, 데이터 유실 방지를 위해 항상 새 Task를
+  생성하고 완료 상태를 별도로 폴링합니다.
+- 이벤트 처리: 스트리밍 이벤트에서 텍스트 증분 병합을 수행하고, 권위 있는 결과는
+  Task 완료 후 artifacts로부터 재수집합니다.
+
+간단한 사용 예시
+>>> async with A2AClientManager(base_url="http://localhost:8080") as mgr:
+...     resp = await mgr.send_text("안녕하세요")
+...     print(resp.text)
 """
 
 import asyncio
@@ -11,7 +32,7 @@ import logging
 import os
 
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
@@ -120,7 +141,16 @@ class ErrorStrategy(Enum):
 class A2AMessageEngine:
     """A2A 메시지 처리 엔진.
 
-    모든 메시지 전송, 이벤트 처리, 재시도 로직을 담당합니다.
+    이 클래스는 A2A 서버와의 상호작용 전 과정(초기화 → 전송 → 이벤트 처리 →
+    완료 폴링 → 결과 수집)을 캡슐화합니다. 서버 구현별로 스트리밍 이벤트의
+    불완전성이나 완료 Task 조회 타이밍 문제로 인한 데이터 누락이 발생할 수 있어,
+    본 엔진은 다음 원칙을 따릅니다.
+
+    - 전송 중 스트리밍 이벤트는 사용자 경험을 위해 즉시 전달하되(증분 병합),
+      최종 결과는 Task 완료 후 artifacts/history에서 다시 한 번 수집합니다.
+    - 실무 개발 편의를 위해 Docker 컨테이너 호스트명을 로컬호스트로 변환하는
+      선택 로직을 내장합니다(IS_DOCKER=false인 경우).
+    - 재시도는 지수 백오프를 적용해 네트워크/서버 일시 오류에 탄력적으로 대처합니다.
     """
 
     def __init__(
@@ -131,6 +161,19 @@ class A2AMessageEngine:
         retry_delay: float = 1.0,
         credential_service: CredentialService | None = None,
     ):
+        """엔진 인스턴스를 생성합니다.
+
+        Args:
+            base_url: A2A 서버의 베이스 URL.
+            streaming: 서버가 스트리밍을 지원할 때 이벤트 기반 수신을 활성화할지 여부.
+            max_retries: 재시도 최대 횟수.
+            retry_delay: 재시도 기본 대기(초). 지수 백오프로 증가합니다.
+            credential_service: 인증 토큰 주입 등을 위한 자격 증명 서비스.
+
+        설계 배경:
+            - 네트워크/서버 변동성을 고려해 재시도/타임아웃을 보수적으로 설정합니다.
+            - 인증이 필요한 배포 환경을 고려해 인터셉터를 주입할 수 있도록 합니다.
+        """
         self.base_url = base_url
         self.streaming = streaming
         self.max_retries = max_retries
@@ -145,7 +188,19 @@ class A2AMessageEngine:
         self.current_task_id: str | None = None  # 현재 실행 중인 task_id
 
     async def initialize(self) -> 'A2AMessageEngine':
-        """엔진을 초기화합니다."""
+        """엔진을 초기화합니다.
+
+        - HTTPX 비동기 클라이언트를 구성합니다(타임아웃/커넥션 풀/헤더 포함).
+        - 에이전트 카드(AgentCard)를 원격에서 조회합니다.
+        - 필요 시 Docker 호스트명을 로컬로 매핑합니다.
+        - A2A 클라이언트를 팩토리로 생성하고 인증 인터셉터를 연결합니다.
+
+        Returns:
+            self: 체이닝을 위한 자기 자신.
+
+        Raises:
+            Exception: 초기화 실패 시 원인을 로깅하고 예외를 전파합니다.
+        """
         try:
             logger.debug(f'Initializing A2A engine for {self.base_url}')
 
@@ -248,7 +303,11 @@ class A2AMessageEngine:
             raise
 
     async def close(self) -> None:
-        """리소스를 정리합니다."""
+        """리소스를 정리합니다.
+
+        HTTPX 클라이언트와 A2A 클라이언트의 커넥션을 안전하게 종료합니다.
+        외부 자원을 다루는 객체이므로 ``async with`` 문맥 관리자 사용을 권장합니다.
+        """
         if self._httpx_client:
             await self._httpx_client.aclose()
         if self.client:
@@ -259,14 +318,24 @@ class A2AMessageEngine:
         message: Message,
         process_callback: Callable | None = None,
     ) -> UnifiedResponse:
-        """핵심 메시지 전송 메서드 (Task ID 캐싱 및 중복 방지 포함).
+        """핵심 메시지 전송 메서드.
+
+        전송 흐름
+        1) 항상 새 Task를 생성하여 이벤트 루프를 처리합니다(캐싱 비활성화).
+        2) 스트리밍 이벤트에서 텍스트 증분을 병합하고, 데이터 Part를 누적합니다.
+        3) 이벤트 루프 종료 후, 동일 Task에 대해 별도로 완료 폴링을 수행해
+           artifacts/history로부터 권위 있는 결과를 재수집합니다.
 
         Args:
-            message: 전송할 Message 객체
-            process_callback: 각 이벤트 처리 시 호출할 콜백
+            message: 전송할 A2A ``Message`` 객체.
+            process_callback: 스트리밍 처리 중 청크가 도착할 때 호출할 비동기 콜백.
+                인자로 ``{"type": "text"|"data"|"file", "content": ...}`` 형식을 전달합니다.
 
         Returns:
-            UnifiedResponse: 통합된 응답
+            UnifiedResponse: 수집된 텍스트/데이터/파일 Part와 메타데이터를 포함한 응답.
+
+        Raises:
+            ValueError: 엔진이 초기화되지 않은 경우.
         """
         if not self.client:
             raise ValueError('Engine not initialized. Call initialize() first.')
@@ -372,7 +441,18 @@ class A2AMessageEngine:
         return response
 
     async def _process_event(self, event) -> dict[str, Any]:
-        """단일 이벤트를 처리하여 Part들을 추출합니다."""
+        """단일 이벤트에서 의미 있는 Part를 추출합니다.
+
+        이벤트는 구현체에 따라 ``(task, ...)`` 형태의 튜플로 전달될 수 있으며,
+        우선순위는 artifacts > history 입니다. 여기서는 다음 규칙을 따릅니다.
+        - artifacts 가 존재하면 각 artifact.parts 의 root 를 검사하여
+          Text/Data/File Part를 우선 추출합니다.
+        - artifacts 가 없으면 history 의 마지막 agent 메시지에서 Part를 추출합니다.
+
+        Returns:
+            dict[str, Any]: ``{"text": str} | {"data": dict} | {"file": {...}}``
+            중 하나 혹은 여러 키를 포함하는 딕셔너리. 추출 실패 시 빈 dict.
+        """
         result = {}
 
         # 이벤트 구조 로깅
@@ -468,7 +548,18 @@ class A2AMessageEngine:
         return result
 
     def _merge_incremental_text(self, existing: str, new: str) -> str:
-        """증분 텍스트를 병합합니다."""
+        """증분 텍스트를 병합합니다.
+
+        스트리밍 중 모델이 동일 구간을 중복하여 보낼 수 있으므로, 접미-접두
+        겹침을 탐색해 델타만 이어 붙입니다.
+
+        알고리즘:
+            - ``existing`` 의 접미와 ``new`` 의 접두가 최대한 겹치는 길이를 찾고,
+              그 이후 부분만 이어 붙입니다.
+
+        복잡도:
+            - O(n) (n = 두 문자열 중 더 짧은 길이)
+        """
         if not existing:
             return new
         if new.startswith(existing):
@@ -489,7 +580,20 @@ class A2AMessageEngine:
     def _merge_data_parts(
         self, parts: list[dict[str, Any]], mode: str = 'smart'
     ) -> dict[str, Any]:
-        """여러 DataPart를 하나로 병합합니다."""
+        """여러 DataPart를 하나로 병합합니다.
+
+        기본 정책은 "스마트 병합"입니다.
+        - 리스트 값은 합치되, 직렬화 기반 키로 중복을 제거합니다.
+        - 딕셔너리 값은 재귀적으로 병합합니다.
+        - 그 외 스칼라 값은 마지막 값 우선입니다.
+
+        Args:
+            parts: 병합할 데이터 Part들의 리스트.
+            mode: 'smart' | 'last'. 'last'는 마지막 Part만 채택합니다.
+
+        Returns:
+            dict[str, Any]: 병합 결과.
+        """
         if not parts:
             return {}
 
@@ -532,7 +636,22 @@ class A2AMessageEngine:
         return result
 
     async def execute_with_retry(self, func, *args, **kwargs):
-        """재시도 로직을 적용하여 함수를 실행합니다."""
+        """재시도 로직을 적용하여 비동기 함수를 실행합니다.
+
+        - A2AClientError, httpx.HTTPError에 대해 지수 백오프를 적용합니다.
+        - ValueError는 프로그래밍 오류 가능성이 높아 즉시 전파합니다.
+
+        Args:
+            func: 실행할 비동기 함수 콜러블.
+            *args: 함수 위치 인자.
+            **kwargs: 함수 키워드 인자.
+
+        Returns:
+            Any: ``func`` 의 반환값.
+
+        Raises:
+            Exception: 재시도 한도를 초과하거나 예기치 못한 오류가 발생한 경우.
+        """
         last_error = None
 
         for attempt in range(self.max_retries):
@@ -574,7 +693,19 @@ class A2AMessageEngine:
     # ==================== Task ID 캐싱 및 중복 방지 메서드들 ====================
 
     def _generate_request_hash(self, message: Message) -> str:
-        """메시지 내용을 기반으로 고유한 해시를 생성합니다."""
+        """메시지 내용을 기반으로 고유한 해시를 생성합니다.
+
+        왜 필요한가:
+            동일한 메시지 내용으로 중복 요청을 보낼 때 Task 재사용/추적을 위해
+            경량 식별자를 사용합니다. 현재 구현에서는 항상 새 Task를 생성하지만,
+            로깅/디버깅 및 향후 최적화를 위해 해시를 기록해 둡니다.
+
+        해시 입력:
+            - TextPart.text, DataPart.data(JSON 직렬화), FilePart.file 의 uri/name
+
+        Returns:
+            str: 16자 길이의 SHA256 트렁케이트 해시 값.
+        """
         try:
             # 메시지의 핵심 내용들을 추출하여 해시 생성
             content_parts = []
@@ -620,7 +751,18 @@ class A2AMessageEngine:
             ).hexdigest()[:16]
 
     async def _get_task_direct(self, task_id: str) -> Any | None:
-        """GetTask API를 직접 호출하여 task 정보를 가져옵니다 (새 메시지 생성 안 함)."""
+        """GetTask API를 직접 호출하여 Task 정보를 조회합니다.
+
+        주의:
+            일부 클라이언트 구현에서 ``client.get_task`` 가 내부적으로 새 메시지를
+            생성할 수 있어, 가능하면 transport 레이어의 ``get_task`` 를 직접 사용합니다.
+
+        Args:
+            task_id: 조회할 Task 식별자.
+
+        Returns:
+            Any | None: Task 객체(성공 시) 또는 ``None``.
+        """
         try:
             from a2a.types import TaskQueryParams
 
@@ -651,10 +793,14 @@ class A2AMessageEngine:
     async def _get_or_create_task_id(
         self, message: Message
     ) -> tuple[str | None, bool]:
-        """기존 task_id를 찾거나 새로 생성합니다.
+        """기존 Task 재사용 여부를 판단하고 ``task_id`` 를 반환합니다.
+
+        현재 엔진 설정에서는 데이터 유실 이슈로 인해 항상 새 Task를 생성하지만,
+        캐시된 Task가 "완료/실패/취소" 상태인 경우 결과 재조회 등의 용도로
+        재사용할 수 있도록 로직을 유지합니다.
 
         Returns:
-            tuple[Optional[str], bool]: (task_id, is_new_task)
+            tuple[str | None, bool]: ``(task_id, is_new_task)``
         """
         try:
             # 메시지 해시 생성
@@ -713,7 +859,21 @@ class A2AMessageEngine:
     async def _wait_for_task_completion(
         self, task_id: str, max_wait: int = 120, poll_interval: float = 10.0
     ) -> Any | None:
-        """Task 완료 polling (직접 GetTask API 사용)."""
+        """Task 완료까지 주기적으로 상태를 확인(polling)합니다.
+
+        왜 필요한가:
+            스트리밍 루프가 종료되어도 서버가 artifacts/history를 완전히 기록하기 전일
+            수 있습니다. 안정적 결과 수집을 위해 완료 상태 또는 충분한 산출물이 관측될
+            때까지 폴링합니다.
+
+        Args:
+            task_id: 대상 Task 식별자.
+            max_wait: 최대 대기 시간(초).
+            poll_interval: 폴링 간격(초).
+
+        Returns:
+            Any | None: 완료 또는 산출물이 관측된 Task 객체, 타임아웃/에러 시 ``None``.
+        """
         logger.info(
             f'Task completion polling for task {task_id} (max_wait: {max_wait}s)'
         )
@@ -811,10 +971,13 @@ class A2AMessageEngine:
     async def _extract_task_results(
         self, task: Any, response: UnifiedResponse, text_accumulator: str
     ) -> str:
-        """Task에서 결과를 추출하여 response에 저장합니다.
+        """완료된 Task에서 권위 있는 결과를 추출해 응답에 반영합니다.
+
+        우선순위는 artifacts > history 입니다. artifacts 에 텍스트/데이터가 존재하면
+        스트리밍 중 누적된 결과를 덮어써 최종 결과의 일관성을 보장합니다.
 
         Returns:
-            str: 업데이트된 text_accumulator
+            str: 업데이트된 텍스트 누산 값.
         """
         try:
             logger.info('Extracting results from completed task')
@@ -1051,11 +1214,13 @@ class A2AClientManager:
         self.agent_card = None  # engine.agent_card로 대체
         self._httpx_client = None  # engine._httpx_client로 대체
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'A2AClientManager':
+        """A2AClientManager를 초기화합니다."""
         await self.initialize()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """A2AClientManager를 정리합니다."""
         await self.close()
 
     async def initialize(self) -> 'A2AClientManager':
@@ -1098,10 +1263,10 @@ class A2AClientManager:
     async def health_check(self) -> bool:
         """연결 상태를 확인합니다."""
         try:
-            if not self.engine._httpx_client:
+            if not self._httpx_client:
                 return False
 
-            response = await self.engine._httpx_client.get(
+            response = await self._httpx_client.get(
                 f'{self.base_url}{AGENT_CARD_WELL_KNOWN_PATH}',
                 timeout=5.0,
                 headers={
@@ -1120,68 +1285,6 @@ class A2AClientManager:
             logger.info(f'Connection lost to {self.base_url}, reconnecting...')
             await self.close()
             await self.initialize()
-
-    # ==================== Legacy Compatible Methods ====================
-
-    async def send_query(self, user_query: str) -> str:
-        """텍스트 질의를 전송합니다. (레거시 호환).
-
-        Args:
-            user_query: 전송할 텍스트
-
-        Returns:
-            str: 응답 텍스트
-        """
-        response = await self.text_client.send(user_query)
-        return response.text
-
-    async def send_data(self, data: dict[str, Any]) -> dict[str, Any]:
-        """데이터를 전송합니다.
-
-        Args:
-            data: 전송할 데이터
-
-        Returns:
-            List[Dict]: DataPart 리스트
-        """
-        response = await self.data_client.send(data)
-        return asdict(response)
-
-    async def send_data_with_full_messages(
-        self, data: dict[str, Any]
-    ) -> dict[str, Any]:
-        """데이터를 전송하고 전체 메시지 히스토리를 반환합니다. (레거시 호환).
-
-        Args:
-            data: 전송할 데이터
-
-        Returns:
-            Dict: data_parts와 history를 포함한 딕셔너리
-        """
-        # 일단 기본 구현 - 추후 히스토리 수집 로직 추가
-        response = await self.data_client.send(data)
-
-        return {
-            'data_parts': response.data_parts,
-            'full_message_history': [],  # TODO: 히스토리 수집 구현
-            'streaming_text': '',
-            'event_count': response.event_count,
-        }
-
-    async def send_data_merged(
-        self, data: dict[str, Any], merge_mode: str = 'smart'
-    ) -> dict[str, Any]:
-        """데이터를 전송하고 병합된 결과를 반환합니다. (레거시 호환).
-
-        Args:
-            data: 전송할 데이터
-            merge_mode: 병합 모드
-
-        Returns:
-            Dict: 병합된 데이터
-        """
-        response = await self.data_client.send(data, merge_mode=merge_mode)
-        return response.merged_data or {}
 
     # ==================== New Unified Methods ====================
 
@@ -1222,7 +1325,7 @@ class A2AClientManager:
 
 
     async def send_text(self, text: str, **options) -> TextResponse:
-        """텍스트를 전송합니다. (새 API)."""
+        """텍스트를 전송합니다."""
         return await self.text_client.send(text, **options)
 
     async def send_file(
@@ -1231,7 +1334,8 @@ class A2AClientManager:
         mime_type: str = 'application/octet-stream',
         **options,
     ) -> FileResponse:
-        """파일을 전송합니다. (새 API)."""
+        """파일을 전송합니다."""
+        # TODO: 추가 구현이 필요합니다.
         return await self.file_client.send(file, mime_type, **options)
 
 

@@ -3,6 +3,12 @@ from typing import Any, ClassVar, Never, get_type_hints
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
+from langchain_mcp_adapters.client import (
+    MultiServerMCPClient,
+)
+from langchain_mcp_adapters.sessions import (
+    StreamableHttpConnection,
+)
 from langgraph.cache.base import BaseCache
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import StateGraph
@@ -104,18 +110,9 @@ class BaseGraphAgent:
 
     async def mcp_tools_init(self) -> list[BaseTool] | None:
         """MCP 서버를 초기화하는 메서드."""
-        from langchain_mcp_adapters.client import (
-            MultiServerMCPClient,
-        )
-        from langchain_mcp_adapters.sessions import (
-            StreamableHttpConnection,
-        )
-
-        # connections 딕셔너리 먼저 생성
         connections = {}
         for server in self.mcp_servers:
             # TODO: [Performance] Connection pooling 구현 필요 - 현재 각 서버마다 새 연결 생성
-            # TODO: [Security] SSL/TLS 인증서 검증 옵션 추가 필요
             connections[server['name']] = StreamableHttpConnection(
                 url=server['url']
             )

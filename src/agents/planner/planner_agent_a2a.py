@@ -1,7 +1,7 @@
-"""Planner Agent with A2A Integration.
+"""A2A 통합이 적용된 플래너 에이전트.
 
-This module provides a Planner agent that implements the standardized
-A2A interface for task planning and distribution.
+이 모듈은 표준화된 A2A 인터페이스를 구현하여 작업 계획 수립과 배분을
+수행하는 플래너 에이전트를 제공한다.
 """
 
 import asyncio
@@ -38,15 +38,15 @@ logger = structlog.get_logger(__name__)
 
 
 class PlannerA2AAgent(BaseA2AAgent, BaseGraphAgent):
-    """Planner Agent with A2A integration support.
+    """A2A 통합 플래너 에이전트.
 
-    This agent performs task planning and distribution:
-    - Parse user requests into structured PRDs
-    - Create execution plans with dependencies
-    - Distribute tasks to appropriate agents
-    - Monitor task execution progress
+    이 에이전트는 다음을 수행한다:
+    - 사용자 요청을 구조화된 PRD로 파싱
+    - 의존성을 포함한 실행 계획 생성
+    - 적절한 에이전트로 작업 분배
+    - 작업 실행 진행 상황 모니터링
 
-    Provides structured task plans for the Supervisor agent.
+    최종적으로 Supervisor 에이전트에 구조화된 작업 계획을 제공한다.
     """
 
     def __init__(
