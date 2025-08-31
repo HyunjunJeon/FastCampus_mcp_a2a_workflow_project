@@ -1,0 +1,38 @@
+[project]
+name = "fastcampus-workflow-automation-multi-agent"
+version = "0.1.0"
+description = "FastCampus Workflow Automation Multi-Agent Project"
+authors = [
+    { name = "Hyunjun Jeon", email = "jeonhj920@gmail.com" }
+]
+license = { file = "LICENSE" }
+keywords = ["langchain", "langgraph", "a2a", "mcp", "workflow", "automation", "multi-agent"]
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "a2a-sdk[grpc,http-server]>=0.3.3",
+    "fastmcp>=2.11.3",
+    "langchain>=0.3.27",
+    "langchain-mcp-adapters>=0.1.9",
+    "langchain-openai>=0.3.31",
+    "langchain-sandbox>=0.0.6",
+    "langgraph>=0.6.6",
+    "langgraph-supervisor>=0.0.29",
+    "python-dotenv>=1.1.1",
+    "pytz>=2025.2",
+    "structlog>=25.4.0",
+    "uvloop>=0.21.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.1",
+    "pytest>=8.4.1",
+    "ruff>=0.12.10",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

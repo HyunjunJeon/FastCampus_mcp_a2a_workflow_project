@@ -1,0 +1,207 @@
+services:
+  # Planner Agent
+  planner-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: planner-agent
+    ports:
+      - "8001:8000"
+    environment:
+      - IS_DOCKER=true
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_HOST=0.0.0.0
+      - AGENT_PORT=8000
+      - NOTION_MCP_URL=http://notion-mcp:3000/mcp
+      - OPENMEMORY_MCP_URL=http://openmemory-mcp:8031/mcp
+      - PLAYWRIGHT_MCP_URL=http://host.docker.internal:8931/mcp
+    networks:
+      - a2a-network
+    restart: unless-stopped
+    command: ["python", "-m", "src.agents.planner"]
+
+  # Supervisor Agent
+  supervisor-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: supervisor-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - IS_DOCKER=true
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_HOST=0.0.0.0
+      - AGENT_PORT=8000
+      - EXECUTOR_URL=http://executor-agent:8000
+      - PLANNER_URL=http://planner-agent:8000
+      - BROWSER_URL=http://browser-agent:8000
+      - KNOWLEDGE_URL=http://knowledge-agent:8000
+      - NOTION_MCP_URL=http://notion-mcp:3000/mcp
+      - OPENMEMORY_MCP_URL=http://openmemory-mcp:8031/mcp
+      - PLAYWRIGHT_MCP_URL=http://host.docker.internal:8931/mcp
+    depends_on:
+      - planner-agent
+    networks:
+      - a2a-network
+    restart: unless-stopped
+    command: ["python", "-m", "src.agents.supervisor"]
+
+  # Browser Agent with Playwright MCP
+  browser-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: browser-agent
+    ports:
+      - "8005:8000"
+    environment:
+      - IS_DOCKER=true
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_HOST=0.0.0.0
+      - AGENT_PORT=8000
+      - NOTION_MCP_URL=http://notion-mcp:3000/mcp
+      - OPENMEMORY_MCP_URL=http://openmemory-mcp:8031/mcp
+      - PLAYWRIGHT_MCP_URL=http://host.docker.internal:8931/mcp
+    networks:
+      - a2a-network
+    restart: unless-stopped
+    command: ["python", "-m", "src.agents.browser"]
+
+  # Executor Agent
+  executor-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: executor-agent
+    ports:
+      - "8004:8000"
+    environment:
+      - IS_DOCKER=true
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_HOST=0.0.0.0
+      - AGENT_PORT=8000
+      - NOTION_PARENT_PAGE_ID=${NOTION_PARENT_PAGE_ID}
+      - NOTION_MCP_URL=http://notion-mcp:3000/mcp
+      - OPENMEMORY_MCP_URL=http://openmemory-mcp:8031/mcp
+      - PLAYWRIGHT_MCP_URL=http://host.docker.internal:8931/mcp
+    networks:
+      - a2a-network
+    restart: unless-stopped
+    command: ["python", "-m", "src.agents.executor"]
+
+  # Notion MCP Server
+  notion-mcp:
+    image: mcp/notion:latest
+    container_name: notion-mcp-server
+    ports:
+      - "8930:3000"
+    environment:
+      - NOTION_TOKEN=${NOTION_TOKEN}
+      - AUTH_TOKEN=${AUTH_TOKEN}
+    networks:
+      - a2a-network
+    restart: unless-stopped
+    command: ["--transport", "http"]
+
+  # Qdrant Vector Database (OpenMemory dependency)
+  mem0-store:
+    image: qdrant/qdrant:latest
+    container_name: mem0-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - mem0_storage:/qdrant/storage
+    networks:
+      - a2a-network
+    restart: unless-stopped
+
+  # OpenMemory MCP Server
+  openmemory-mcp:
+    build:
+      context: ./mem0/openmemory/api
+      dockerfile: Dockerfile
+    container_name: openmemory-mcp-server
+    ports:
+      - "8031:8031"
+    environment:
+      - USER=${USER}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - mem0-store
+    networks:
+      - a2a-network
+    volumes:
+      - ./mem0/openmemory/api:/usr/src/openmemory
+    restart: unless-stopped
+    command: ["python", "run_mcp.py"]
+
+  # Knowledge Agent (placeholder)
+  knowledge-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: knowledge-agent
+    ports:
+      - "8006:8000"
+    environment:
+      - IS_DOCKER=true
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_HOST=0.0.0.0
+      - AGENT_PORT=8000
+      - NOTION_MCP_URL=http://notion-mcp:3000/mcp
+      - OPENMEMORY_MCP_URL=http://openmemory-mcp:8031/mcp
+      - PLAYWRIGHT_MCP_URL=http://host.docker.internal:8931/mcp
+    networks:
+      - a2a-network
+    restart: unless-stopped
+    command: ["python", "-m", "src.agents.knowledge"]
+
+  # LangChain Sandbox MCP Server
+  langchain-sandbox-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile  # Use main Dockerfile with all dependencies
+    container_name: langchain-sandbox-mcp
+    ports:
+      - "8035:8035"
+    environment:
+      - IS_DOCKER=true
+      - PYTHONPATH=/app
+      - DEBUG=true
+      - ALLOW_NETWORK=true
+      - SESSION_TIMEOUT=30
+      - MAX_SESSIONS=10
+    networks:
+      - a2a-network
+    restart: unless-stopped
+    command: ["python", "-m", "src.mcp_config_module.servers.langchain_sandbox_server", "--host", "0.0.0.0", "--port", "8035", "--debug"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8035/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  
+  a2a-inspector:
+    build:
+      context: .
+      dockerfile: a2a-inspector/Dockerfile
+    container_name: a2a-inspector
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - a2a-network
+
+networks:
+  a2a-network:
+    driver: bridge
+
+volumes:
+  mem0_storage:

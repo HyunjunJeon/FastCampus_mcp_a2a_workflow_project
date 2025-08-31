@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Test
+tests/
+
+# IDE
+.vscode/
+
+# Virtual environments
+.venv
+node_modules/
+
+# Environment variables
+.env
+
+# AI Tools
+.claude
+CLAUDE.md
+.serena
+.kiro
