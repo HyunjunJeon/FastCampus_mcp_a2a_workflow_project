@@ -9,6 +9,7 @@ import traceback
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+from types import TracebackType
 from typing import Any, TypeVar
 
 import structlog
@@ -323,7 +324,12 @@ class ErrorContext:
         )
         return self
 
-    def __exit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: Any) -> bool:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         """컨텍스트 매니저 종료."""
         duration = (datetime.now(UTC) - self.start_time).total_seconds()
 

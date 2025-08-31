@@ -172,7 +172,7 @@ client = await manager.initialize()
 result = await client.send_data({"messages": [{"role": "user", "content": "query"}]})
 ```
 
-## Docker 컴포지션 개요
+## Docker Compose 개요
 
 `docker-compose-full.yml`은 Supervisor/Planner/Executor/Browser/Knowledge 에이전트와 MCP 서버들(Notion, OpenMemory, LangChain Sandbox, Qdrant)을 하나의 브리지 네트워크로 묶어 기동합니다. Playwright MCP는 호스트에서 8931 포트로 기동 후 컨테이너에서 `host.docker.internal`을 통해 접근하는 구성을 권장합니다.
 
@@ -187,20 +187,19 @@ result = await client.send_data({"messages": [{"role": "user", "content": "query
 - OpenMemory MCP: 호스트 8031
 - LangChain Sandbox MCP: 호스트 8035
 
-## 참고 문서
+## 소스코드 참조 문서
 
-- 루트 아키텍처 문서: `AGENT.md`
-- 소스 구조 문서: `src/AGENT.md`
-- 베이스/공용 모듈: `src/base/AGENT.md`
-- A2A 통합: `src/a2a_integration/AGENT.md`
-- MCP 설정 모듈: `src/mcp_config_module/AGENT.md`
-- 배포/서비스 문서: `docker/AGENT.md`
-- A2A 인스펙터: `a2a-inspector/AGENT.md`
-- Notion MCP 가이드: `docker/mcp-notion.md`
-- Playwright MCP 가이드: `docker/mcp-playwright.md`
+- [루트 아키텍처 문서](AGENT.md)
+- [소스 구조 문서](src/AGENT.md)
+- [베이스/공용 모듈](src/base/AGENT.md)
+- [A2A 통합](src/a2a_integration/AGENT.md)
+- [MCP 설정 모듈](src/mcp_config_module/AGENT.md)
+- [배포/서비스 문서](docker/AGENT.md)
+- [A2A 인스펙터](a2a-inspector/AGENT.md)
+- [Notion MCP 가이드](docker/mcp-notion.md)
+- [Playwright MCP 가이드](docker/mcp-playwright.md)
 
-## 주의 사항
+---
 
-- 모든 문서는 한글로 작성하며 이모지는 사용하지 않습니다.
-- 기존 구현을 재사용하고 확장하는 방식을 우선합니다. 베이스 클래스/유틸을 재작성하지 마십시오.
-- 컨테이너에서 브라우저 자동화를 안정적으로 사용하려면 Playwright MCP를 호스트에서 먼저 기동하고 연결을 확인하십시오.
+추가 레퍼런스와 상세 가이드는 [docs/](docs/) 디렉터리를 참고하십시오.  
+전체 기술 문서는 [docs/AGENT.md](docs/AGENT.md)를 시작점으로 탐색할 수 있으며, A2A 프로토콜 사양과 튜토리얼은 [docs/a2a_spec/](docs/a2a_spec/)에 정리되어 있습니다.

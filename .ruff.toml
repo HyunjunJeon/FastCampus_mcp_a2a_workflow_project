@@ -136,6 +136,24 @@ inline-quotes = "single"
     "PLR2004",
     "SLF001",
 ]
+"examples/**" = [
+    "PLR0915", # too many statements in examples
+    "PLR2004", # magic values in examples
+    "PTH123",  # encourage Path.open, but relax in examples
+    "ANN001",  # missing arg annotations in examples
+    "ANN201",  # missing return annotations in examples
+    "E722",    # bare except in examples
+]
+"src/agents/supervisor/supervisor_agent_a2a.py" = ["PLR0915"]
+"src/agents/knowledge/knowledge_agent_a2a.py" = ["PLR2004"]
+"src/agents/executor/task_executor_agent_a2a.py" = ["PLR0915", "PLR0911"]
+"src/agents/executor/task_executor_agent_lg.py" = ["ANN001"]
+"src/agents/browser/browser_use_agent_a2a.py" = ["ANN001", "PLR0911"]
+"src/a2a_integration/a2a_lg_server_utils.py" = [
+    "PLR0913", "PLR0915", "ANN202", "ANN001", "PLR0911", "E722",
+]
+"src/base/base_graph_agent.py" = ["PLR0913", "D417"]
+"src/mcp_config_module/base_mcp_server.py" = ["PLR0913", "D417", "PYI036"]
 
 [format]
 exclude = []

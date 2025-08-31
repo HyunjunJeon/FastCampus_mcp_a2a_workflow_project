@@ -22,9 +22,9 @@ def load_env_file() -> None:
                 stripped_line = line.strip()
                 if stripped_line.startswith('#') or not stripped_line:
                     continue
-                line = stripped_line
-                if '=' in line:
-                    key, value = line.split('=', 1)
+                parsed_line = stripped_line
+                if '=' in parsed_line:
+                    key, value = parsed_line.split('=', 1)
                     value = value.strip('\'"')
                     os.environ[key] = value
 

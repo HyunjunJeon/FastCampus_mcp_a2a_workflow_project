@@ -25,18 +25,21 @@ The source code is organized into distinct modules, each serving specific archit
 ## Key Components
 
 ### Base Infrastructure
+
 - `BaseGraphAgent`: Abstract base class for all LangGraph agents
 - `BaseGraphState`: State management utilities
 - `A2AOutput`: Standardized output format for A2A integration
 - Error handling and configuration management
 
 ### A2A Protocol Integration
+
 - `A2AClientManager`: Client for inter-agent communication
 - `A2AStarletteApplication`: HTTP server for A2A endpoints
 - Authentication and CORS handling
 - Request/response processing
 
 ### Agent Implementations
+
 - **Supervisor Agent**: Orchestrates workflow execution
 - **Planner Agent**: Creates structured execution plans
 - **Browser Agent**: Web automation and data extraction
@@ -44,6 +47,7 @@ The source code is organized into distinct modules, each serving specific archit
 - **Executor Agent**: General task execution
 
 ### MCP Integration
+
 - Playwright MCP for browser automation
 - Notion MCP for document management
 - LangChain Sandbox MCP for code execution
@@ -52,6 +56,7 @@ The source code is organized into distinct modules, each serving specific archit
 ## Quick Start
 
 ### Environment Setup
+
 ```bash
 # Set Python path
 export PYTHONPATH="${PWD}/src"
@@ -64,6 +69,7 @@ uv run python -m agents.supervisor
 ```
 
 ### Agent Development
+
 1. Extend `BaseGraphAgent` for new agents
 2. Implement A2A interface methods
 3. Use `A2AClientManager` for inter-agent communication

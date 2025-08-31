@@ -1,7 +1,16 @@
-"""FastMCP Logging Middleware.
+"""FastMCP 로깅 미들웨어.
 
-This middleware provides structured logging for FastMCP servers,
-including request/response logging, performance metrics, and audit trails.
+이 모듈은 FastMCP 서버에서 요청/응답 로깅, 성능 메트릭, 감사 로그를
+구조화된 형태로 수집하기 위한 미들웨어를 제공합니다.
+
+설계 의도:
+- 구조화된 로깅(structlog) 기본값을 채택하여 운영 환경에서의 검색/집계를 개선합니다.
+- 성능 임계치 기반의 느린 호출 감지와 감사 로그를 옵션으로 제공합니다.
+
+사용 예시:
+    >>> from src.mcp_config_module.common.middleware.logging import create_debug_logger
+    >>> log_mw = create_debug_logger()
+    >>> # 서버 미들웨어 체인에 등록하여 사용
 """
 
 import json
@@ -40,7 +49,10 @@ logger = structlog.get_logger(__name__)
 
 
 class LogLevel(str, Enum):
-    """로그 레벨 정의."""
+    """로그 레벨 정의.
+
+    Python 표준 로깅 레벨과 동일한 문자열 값을 사용합니다.
+    """
 
     DEBUG = 'DEBUG'
     INFO = 'INFO'
@@ -50,7 +62,13 @@ class LogLevel(str, Enum):
 
 
 class LoggingMiddleware(Middleware):
-    """FastMCP Logging Middleware."""
+    """FastMCP 로깅 미들웨어 구현체.
+
+    기능 요약:
+    - 도구 호출/리소스 접근의 요청·응답·에러를 구조화하여 로깅
+    - 실행 시간/응답 크기 등 기본 성능 지표 기록 및 느린 호출 경고
+    - 감사 로그(Audit Trail) 옵션 제공
+    """
 
     # Performance thresholds
     SLOW_EXECUTION_THRESHOLD = 5.0  # 5 seconds
@@ -64,7 +82,7 @@ class LoggingMiddleware(Middleware):
         log_errors: bool = True,
         **kwargs
     ):
-        """Logging middleware 초기화.
+        """로깅 미들웨어 초기화 및 정책 구성.
 
         Args:
             log_level: 최소 로그 레벨
@@ -78,6 +96,7 @@ class LoggingMiddleware(Middleware):
             include_context: 컨텍스트 로깅 여부
             audit_trail: 감사 로그 생성 여부
             structured_logging: 구조화된 로깅 사용 여부
+            **kwargs: 추가 로깅 동작을 제어하는 선택적 설정 값들
         """
         super().__init__()
 
@@ -113,9 +132,9 @@ class LoggingMiddleware(Middleware):
             'session_id',
         }
 
-        if mask_sensitive_fields:
+        if self.mask_sensitive_fields:
             self.sensitive_fields = default_sensitive_fields.union(
-                mask_sensitive_fields
+                self.mask_sensitive_fields
             )
         else:
             self.sensitive_fields = default_sensitive_fields
@@ -128,12 +147,16 @@ class LoggingMiddleware(Middleware):
 
         self.logger.info(
             'Logging middleware initialized',
-            log_level=log_level.value,
-            structured=structured_logging,
+            log_level=self.log_level.value,
+            structured=self.structured_logging,
         )
 
     def _mask_sensitive_data(self, data: Any) -> Any:
-        """민감한 데이터 마스킹."""
+        """민감한 데이터 마스킹.
+
+        딕셔너리/리스트 내의 지정된 필드명을 ``***MASKED***``로 치환합니다.
+        중첩 구조는 재귀적으로 처리합니다.
+        """
         if isinstance(data, dict):
             masked_data = {}
             for key, value in data.items():
@@ -149,7 +172,11 @@ class LoggingMiddleware(Middleware):
         return data
 
     def _truncate_response(self, response: Any) -> Any:
-        """응답 데이터 크기 제한."""
+        """응답 데이터 크기 제한.
+
+        과도한 로그 크기로 인한 성능 저하와 개인정보 노출 위험을 줄이기 위해
+        최대 길이를 초과할 경우 프리뷰만 남기고 잘라냅니다.
+        """
         if not isinstance(response, str | dict | list):
             return response
 
@@ -174,7 +201,10 @@ class LoggingMiddleware(Middleware):
         return response
 
     def _create_log_entry(self, event_type: str, **kwargs) -> dict:
-        """표준화된 로그 엔트리 생성."""
+        """표준화된 로그 엔트리 생성.
+
+        공통 타임스탬프/서버 타입 필드를 포함하고, 민감한 데이터를 마스킹합니다.
+        """
         log_entry = {
             'timestamp': datetime.now().isoformat(),
             'event_type': event_type,
@@ -188,7 +218,11 @@ class LoggingMiddleware(Middleware):
     async def call_tool(
         self, call_next: Any, tool_name: str, arguments: dict[str, Any], **context
     ) -> Any:
-        """도구 호출 시 로깅."""
+        """도구 호출 시 로깅.
+
+        요청/응답/성능/에러/감사 로그를 정책에 따라 수집합니다.
+        느린 실행은 경고 레벨로 기록합니다.
+        """
         start_time = time.time()
         request_id = context.get('request_id', f'req_{int(start_time * 1000)}')
 
@@ -301,7 +335,10 @@ class LoggingMiddleware(Middleware):
     async def get_resource(
         self, call_next: Any, resource_uri: str, **context
     ) -> Any:
-        """리소스 접근 시 로깅."""
+        """리소스 접근 시 로깅.
+
+        리소스 접근 요청과 결과를 구조화하여 기록합니다.
+        """
         start_time = time.time()
         request_id = context.get('request_id', f'res_{int(start_time * 1000)}')
 
@@ -373,7 +410,10 @@ class LoggingMiddleware(Middleware):
             raise
 
     def get_log_stats(self) -> dict:
-        """로깅 통계 정보."""
+        """로깅 통계 정보.
+
+        현재 설정된 기능 플래그와 민감 필드 개수 등 요약 정보를 제공합니다.
+        """
         return {
             'log_level': self.log_level.value,
             'structured_logging': self.structured_logging,
@@ -392,7 +432,10 @@ class LoggingMiddleware(Middleware):
 
 
 def create_debug_logger() -> LoggingMiddleware:
-    """디버그용 상세 로깅."""
+    """디버그용 상세 로깅.
+
+    개발 환경에서 요청/응답/성능/에러를 모두 수집합니다.
+    """
     return LoggingMiddleware(
         log_level=LogLevel.DEBUG,
         log_requests=True,
@@ -407,7 +450,11 @@ def create_debug_logger() -> LoggingMiddleware:
 
 
 def create_production_logger() -> LoggingMiddleware:
-    """운영환경용 로깅 (보안 강화)."""
+    """운영환경용 로깅 (보안 강화).
+
+    응답 본문 로깅을 비활성화하고, 인수/컨텍스트 로깅을 제한합니다.
+    감사 로그를 활성화하여 추적성을 확보합니다.
+    """
     return LoggingMiddleware(
         log_level=LogLevel.INFO,
         log_requests=True,
@@ -423,7 +470,10 @@ def create_production_logger() -> LoggingMiddleware:
 
 
 def create_performance_logger() -> LoggingMiddleware:
-    """성능 모니터링 전용 로거."""
+    """성능 모니터링 전용 로거.
+
+    오버헤드를 최소화하여 성능 지표만 수집합니다.
+    """
     return LoggingMiddleware(
         log_level=LogLevel.INFO,
         log_requests=False,
@@ -438,7 +488,10 @@ def create_performance_logger() -> LoggingMiddleware:
 
 
 def create_audit_logger() -> LoggingMiddleware:
-    """감사 로그 전용 로거."""
+    """감사 로그 전용 로거.
+
+    접근 행위를 장기 보관이 용이한 구조로 기록합니다.
+    """
     return LoggingMiddleware(
         log_level=LogLevel.INFO,
         log_requests=True,

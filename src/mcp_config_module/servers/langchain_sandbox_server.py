@@ -1,9 +1,17 @@
-"""LangChain Sandbox MCP Server implementation.
+"""LangChain Sandbox MCP 서버 구현.
 
-This server provides secure Python code execution using PyodideSandbox (WebAssembly).
-It supports session-based isolation and state persistence across executions.
+WebAssembly 기반의 PyodideSandbox를 사용하여 격리된 실행 환경에서 Python 코드를
+안전하게 실행합니다. 세션 단위로 상태를 유지하여, 연속 실행 간 변수/임포트가
+보존되는 노트북 유사 경험을 제공합니다.
+
+특징 및 제약:
+- 표준 출력 캡처 제약: WebAssembly 환경에서는 ``print()`` 결과가 출력으로 수집되지
+  않습니다. 사용자 코드는 반드시 값을 반환해야 합니다.
+- 네트워크 접근은 기본 제한. 필요 시 제한적으로 허용할 수 있습니다.
+- 세션은 타임아웃 경과 시 자동 정리되며, 동시 세션 수에는 상한이 있습니다.
 """
 
+import argparse
 import asyncio
 import json
 import logging
@@ -12,6 +20,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytz
+import uvicorn
 
 from langchain_sandbox import PyodideSandbox
 from pydantic import BaseModel, Field
@@ -24,7 +33,11 @@ logger = logging.getLogger(__name__)
 
 
 class SandboxSession(BaseModel):
-    """Sandbox session management."""
+    """샌드박스 세션 상태 모델.
+
+    각 세션은 독립된 샌드박스 인스턴스를 소유하며, 생성/마지막 접근 시각과
+    누적 실행 횟수, 총 실행 시간을 추적합니다.
+    """
 
     session_id: str
     sandbox: Any  # PyodideSandbox instance
@@ -35,7 +48,10 @@ class SandboxSession(BaseModel):
 
 
 class ExecutionResult(BaseModel):
-    """Python code execution result."""
+    """Python 코드 실행 결과 모델.
+
+    출력/에러/실행 시간/세션 정보, (디버그 모드시) 변수 스냅샷을 포함합니다.
+    """
 
     success: bool
     output: str | None = None
@@ -46,13 +62,11 @@ class ExecutionResult(BaseModel):
 
 
 class LangChainSandboxMCPServer(BaseMCPServer):
-    """MCP Server for LangChain Sandbox code execution.
+    """LangChain 샌드박스 코드 실행을 위한 MCP 서버.
 
-    This server provides secure Python code execution using PyodideSandbox,
-    which runs Python in WebAssembly for isolation.
-
-    WebAssembly 기반 격리 환경에서 안전하게 Python 코드를 실행하며,
-    세션별로 상태를 유지하여 연속적인 코드 실행을 지원합니다.
+    PyodideSandbox를 통해 WebAssembly 상에서 Python을 실행하여 호스트 환경과의
+    격리를 제공합니다. 세션 단위 상태 지속을 통해 REPL/노트북과 유사한 워크플로를
+    지원합니다.
     """
 
     def __init__(
@@ -62,15 +76,16 @@ class LangChainSandboxMCPServer(BaseMCPServer):
         debug: bool = False,
         **kwargs
     ):
-        """Initialize LangChain Sandbox MCP Server.
+        """LangChain Sandbox MCP 서버 초기화.
 
         Args:
-            port: Server port (default: 8035)
-            host: Host address (default: "0.0.0.0")
-            debug: Debug mode flag
-            allow_network: Allow network access in sandbox (httpx only)
-            session_timeout_minutes: Session timeout in minutes
-            max_sessions: Maximum concurrent sessions
+            port: 서버 포트 (기본: 8035)
+            host: 바인드 호스트 주소 (기본: "0.0.0.0")
+            debug: 디버그 모드 여부
+            allow_network: 샌드박스 내 제한적 네트워크 접근 허용 여부(httpx 기반)
+            session_timeout_minutes: 세션 타임아웃(분)
+            max_sessions: 동시 유지 가능한 최대 세션 수
+            **kwargs: 샌드박스/서버 추가 옵션
         """
         # kwargs에서 샌드박스 설정 추출
         self.allow_network = kwargs.get('allow_network', True)
@@ -93,18 +108,28 @@ class LangChainSandboxMCPServer(BaseMCPServer):
         )
 
     def _initialize_clients(self) -> None:
-        """Initialize sandbox sessions dictionary."""
+        """샌드박스 세션 레지스트리 초기화."""
         self.sessions = {}
         self._cleanup_task = None
         logger.info('LangChain Sandbox MCP Server initialized')
 
     def _register_tools(self) -> None:
-        """Register MCP tools for sandbox operations."""
+        """샌드박스 조작을 위한 MCP 도구 등록.
+
+        - ``execute_python``: Python 코드 실행(반드시 값 반환)
+        - ``reset_sandbox``: 세션 상태 초기화
+        - ``get_sandbox_state``: 세션 상태 조회
+        - ``list_sessions``: 활성 세션 목록/통계
+        """
         self._register_execute_python_tool()
         self._register_reset_sandbox_tool()
 
     def _register_execute_python_tool(self) -> None:
-        """Register Python execution tool."""
+        """Python 코드 실행 도구 등록.
+
+        WebAssembly 제약으로 ``print()``는 결과에 반영되지 않습니다. 반드시 값을
+        반환해야 합니다.
+        """
 
         @self.mcp.tool()
         async def execute_python(
@@ -114,35 +139,37 @@ class LangChainSandboxMCPServer(BaseMCPServer):
                 description='Session ID for state persistence across multiple executions',
             ),
         ) -> dict[str, Any]:
-            """Execute Python code in a secure WebAssembly sandbox.
+            """WebAssembly 샌드박스에서 Python 코드를 실행합니다.
 
-            CRITICAL OUTPUT INSTRUCTIONS:
-            - print() statements do NOT work due to WebAssembly stdout limitations
-            - To return output, use one of these patterns:
-              1. Return a value directly: 'result = 2 + 2; result'
-              2. Return a dictionary: 'output = {"message": "Hello", "result": 42}; output'
-              3. Return a formatted string: 'f"Result: {2+2}"'
+            출력 관련 중요 지침:
+            - WebAssembly stdout 제약으로 ``print()``는 결과에 포함되지 않습니다.
+            - 반드시 값을 반환해야 합니다. 아래 예시를 참고하세요.
 
-            The sandbox maintains state between executions within the same session.
-            Variables and imports persist across calls.
+            반환 패턴 예시:
+            1) 값 직접 반환: 'result = 2 + 2; result'
+            2) 딕셔너리 반환: 'output = {"message": "Hello", "result": 42}; output'
+            3) 포맷 문자열 반환: 'f"Result: {2+2}"'
 
-            Example usage:
+            세션 동작:
+            - 동일 ``session_id`` 내에서 변수/임포트가 보존됩니다.
+
+            사용 예시:
             ```python
-            # WRONG - print won't show output:
+            # 잘못된 예시 - print는 출력되지 않음
             print("Hello World")
 
-            # CORRECT - return the value:
+            # 올바른 예시 - 값을 반환해야 함
             message = "Hello World"
             result = {"output": message, "calculation": 2+2}
-            result  # This will be returned
+            result  # 이 값이 응답으로 반환됩니다
             ```
 
             Args:
-                code: Python code to execute (must return a value to see output)
-                session_id: Session identifier for state persistence
+                code: 실행할 Python 코드(반드시 값을 반환해야 결과 확인 가능)
+                session_id: 상태 지속을 위한 세션 식별자
 
             Returns:
-                Execution result with the returned value in 'output' field
+                반환된 값을 'output' 필드에 담아 표준 응답으로 감싼 결과
             """
             try:
                 start_time = asyncio.get_event_loop().time()
@@ -208,7 +235,7 @@ class LangChainSandboxMCPServer(BaseMCPServer):
                 )
 
     def _register_reset_sandbox_tool(self) -> None:
-        """Register sandbox reset tool."""
+        """샌드박스 리셋/상태 조회 도구 등록."""
 
         @self.mcp.tool()
         async def reset_sandbox(
@@ -216,13 +243,13 @@ class LangChainSandboxMCPServer(BaseMCPServer):
                 default='default', description='Session ID to reset'
             ),
         ) -> dict[str, Any]:
-            """Reset a sandbox session, clearing all state.
+            """샌드박스 세션을 초기화하여 모든 상태를 제거합니다.
 
             Args:
-                session_id: Session identifier to reset
+                session_id: 초기화할 세션 식별자
 
             Returns:
-                Success status
+                성공 여부 및 이전 세션 통계 정보
             """
             try:
                 if session_id in self.sessions:
@@ -268,13 +295,13 @@ class LangChainSandboxMCPServer(BaseMCPServer):
                 default='default', description='Session ID to query'
             ),
         ) -> dict[str, Any]:
-            """Get current state of a sandbox session.
+            """샌드박스 세션의 현재 상태를 조회합니다.
 
             Args:
-                session_id: Session identifier to query
+                session_id: 조회할 세션 식별자
 
             Returns:
-                Session state including variables and statistics
+                변수 프리뷰와 세션 통계를 포함한 상태 정보
             """
             try:
                 if session_id not in self.sessions:
@@ -340,10 +367,10 @@ get_vars()
 
         @self.mcp.tool()
         async def list_sessions() -> dict[str, Any]:
-            """List all active sandbox sessions.
+            """활성 샌드박스 세션 목록을 반환합니다.
 
             Returns:
-                List of active sessions with their statistics
+                각 세션의 기본 통계를 포함한 목록
             """
             try:
                 sessions_info = []
@@ -379,13 +406,13 @@ get_vars()
         logger.info('Tools registered successfully')
 
     async def _get_or_create_session(self, session_id: str) -> SandboxSession:
-        """Get existing session or create new one.
+        """세션을 조회하거나 없으면 생성합니다.
 
         Args:
-            session_id: Session identifier
+            session_id: 세션 식별자
 
         Returns:
-            SandboxSession instance
+            ``SandboxSession`` 인스턴스
         """
         # Clean up old sessions if needed
         await self._cleanup_old_sessions()
@@ -414,7 +441,7 @@ get_vars()
         return self.sessions[session_id]
 
     async def _cleanup_old_sessions(self) -> None:
-        """Remove sessions older than timeout."""
+        """타임아웃을 초과한 세션을 정리합니다."""
         now = datetime.now(pytz.UTC)
         timeout_delta = timedelta(minutes=self.session_timeout_minutes)
 
@@ -428,7 +455,7 @@ get_vars()
             logger.info(f'Removed expired session {session_id}')
 
     async def shutdown(self, timeout: float | None = None) -> None:
-        """Shutdown server and cleanup resources."""
+        """서버 종료 및 리소스 정리."""
         logger.info('Shutting down LangChain Sandbox MCP Server')
 
         # Clear all sessions
@@ -439,10 +466,11 @@ get_vars()
 
 
 def main() -> None:
-    """Main entry point for the server."""
-    import argparse
+    """서버 실행 엔트리 포인트.
 
-    import uvicorn
+    커맨드라인 인자를 파싱하여 서버를 구성하고 실행합니다.
+    """
+    # argparse/uvicorn은 최상단에서 임포트됨
 
     parser = argparse.ArgumentParser(description='LangChain Sandbox MCP Server')
     parser.add_argument('--port', type=int, default=8035, help='Server port')

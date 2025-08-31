@@ -4,6 +4,8 @@
 사용자 정보를 저장, 조회, 관리하는 지식(메모리) 에이전트를 구현한다.
 """
 
+import os
+
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -54,7 +56,6 @@ async def create_knowledge_agent(
     """
     try:
         # MCP 서비스 헬스체크
-        import os
         is_docker = os.getenv('IS_DOCKER', 'false').lower() == 'true'
         services_ready = await MCPHealthChecker.ensure_services_ready(
             'memory', is_docker=is_docker, timeout=30
