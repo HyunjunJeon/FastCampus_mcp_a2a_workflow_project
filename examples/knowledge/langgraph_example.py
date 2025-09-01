@@ -290,16 +290,16 @@ async def main() -> None:
         all_results.append(result1)
 
         # 테스트 2: 시맨틱 검색
-        result2 = await test_semantic_search()
-        all_results.append(result2)
+        # result2 = await test_semantic_search()
+        # all_results.append(result2)
 
-        # 테스트 3: 시간 기반 쿼리
-        result3 = await test_time_based_query()
-        all_results.append(result3)
+        # # 테스트 3: 시간 기반 쿼리
+        # result3 = await test_time_based_query()
+        # all_results.append(result3)
 
-        # 테스트 4: 태그 검색
-        result4 = await test_tag_search()
-        all_results.append(result4)
+        # # 테스트 4: 태그 검색
+        # result4 = await test_tag_search()
+        # all_results.append(result4)
 
         # 테스트 5: 복잡한 워크플로우
         result5 = await test_complex_workflow()

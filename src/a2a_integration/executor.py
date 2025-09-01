@@ -45,18 +45,10 @@ from src.base.a2a_interface import A2AOutput, BaseA2AAgent
 logger = structlog.get_logger(__name__)
 
 class LangGraphAgentExecutor(AgentExecutor): # 기존 프로젝트1에서는 V2
-    """A2A Agent Executor for LangGraph agents with A2A interface.
-
-    This executor leverages the standardized A2A interface implemented by each
-    LangGraph agent, eliminating the need for custom result extractors and
-    complex streaming logic.
-
-    한글 설명:
-    - 각 LangGraph 에이전트가 제공하는 표준 A2A 인터페이스를 활용하여 실행 결과를 A2A 메시지로 변환합니다.
-    - 별도의 에이전트별 커스텀 파서 없이도 공통 규격(`A2AOutput`)을 통해 텍스트/데이터 파츠를 생성하고,
-      스트리밍/풀링 모드를 모두 지원합니다.
+    """각 LangGraph 에이전트가 제공하는 표준 A2A 인터페이스를 활용하여 실행 결과를 A2A 메시지로 변환합니다.
+    - 별도의 에이전트별 커스텀 파서 없이도 공통 규격(`A2AOutput`)을 통해 텍스트/데이터 파츠를 생성하고, 스트리밍/풀링 모드를 모두 지원합니다.
     - 설계 의도: 에이전트 교체/확장 시 실행기의 변경을 최소화하고, 상태 업데이트/이벤트 전송을 일관되게 처리합니다.
-    """
+    """  # noqa: D205
 
     def __init__(
         self,
@@ -120,7 +112,9 @@ class LangGraphAgentExecutor(AgentExecutor): # 기존 프로젝트1에서는 V2
                 raise RuntimeError(f'Agent initialization failed: {e}') from e
 
     async def execute(
-        self, context: RequestContext, event_queue: EventQueue
+        self,
+        context: RequestContext,
+        event_queue: EventQueue,
     ) -> None:
         """Execute the A2A request using the standardized agent interface.
 
@@ -184,7 +178,9 @@ class LangGraphAgentExecutor(AgentExecutor): # 기존 프로젝트1에서는 V2
                 initial_message=user_message,
             )
             self.updater = TaskUpdater(
-                event_queue=event_queue, task_id=task_id, context_id=context_id
+                event_queue=event_queue,
+                task_id=task_id,
+                context_id=context_id,
             )
             self.event_queue = event_queue
 
@@ -195,6 +191,7 @@ class LangGraphAgentExecutor(AgentExecutor): # 기존 프로젝트1에서는 V2
             )
 
             # 작업 상태를 "working"으로 일관되게 전환합니다.
+            # await self.updater.start_work()
             await self.updater.update_status(TaskState.working)
             if is_blocking or not self.config.enable_streaming:
                 # 풀링 모드: 최종 결과만 전송합니다.
@@ -450,7 +447,7 @@ class LangGraphAgentExecutor(AgentExecutor): # 기존 프로젝트1에서는 V2
         """
         logger.info(f'Cancelling task: {context.task_id}')
 
-        if context.current_task:
+        if context.current_task and context.current_task.status == TaskState.working:
             updater = TaskUpdater(
                 event_queue=event_queue,
                 task_id=context.current_task.id,

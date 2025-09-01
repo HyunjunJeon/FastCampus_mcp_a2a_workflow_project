@@ -17,7 +17,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, filter_messages
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
 
@@ -81,12 +81,12 @@ async def create_knowledge_agent(
         system_prompt = get_prompt('knowledge', 'system', tool_count=len(tools))
 
         model = model or init_chat_model(
-            model='gpt-4.1',
-            temperature=0.2,
+            model='gpt-4.1-mini',
+            temperature=0.1,
             model_provider='openai',
         )
 
-        checkpointer = checkpointer or MemorySaver()
+        checkpointer = checkpointer or InMemorySaver()
 
         agent = create_react_agent(
             model=model,

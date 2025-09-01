@@ -125,57 +125,6 @@ async def test_a2a_complex_workflow() -> None:
         print(f"- 응답: {result['text_content'][:100]}...")
 
 
-async def test_a2a_final_output() -> None:
-    """A2A 최종 출력 추출."""
-    print("\n" + "=" * 50)
-    print("6. A2A 최종 출력 추출 테스트")
-    print("=" * 50)
-
-    # Memory A2A Agent 초기화
-    agent = KnowledgeA2AAgent(is_debug=True)
-
-    # 샘플 최종 상태
-    final_state = {
-        "workflow_phase": "completed",
-        "messages": [],
-        "active_memories": [
-            {
-                "id": "mem_123",
-                "content": "테스트 메모리",
-                "category": "test",
-                "importance": "high"
-            }
-        ],
-        "retrieved_memories": [
-            {
-                "id": "mem_456",
-                "content": "검색된 메모리",
-                "category": "search",
-                "importance": "medium"
-            }
-        ],
-        "operation_history": [
-            {
-                "operation_type": "save",
-                "success": True,
-                "timestamp": datetime.now(pytz.UTC).isoformat()
-            }
-        ]
-    }
-
-    # 최종 출력 추출
-    final_output = agent.extract_final_output(final_state)
-
-    print("최종 출력:")
-    print(f"- 상태: {final_output['status']}")
-    print(f"- 텍스트: {final_output['text_content']}")
-    print("- 데이터 포함 항목:")
-    if final_output.get('data_content'):
-        for key in final_output['data_content']:
-            print(f"  - {key}")
-    print(f"- 메타데이터: {final_output['metadata']}")
-
-
 async def main() -> None:
     """메인 실행 함수."""
     print("\n" + "🧠 Knowledge Agent A2A 예제 시작")
@@ -189,10 +138,7 @@ async def main() -> None:
         await test_a2a_retrieve_knowledge()
 
         # 3. 복잡한 워크플로우
-        await test_a2a_complex_workflow()
-
-        # 4. 최종 출력 추출
-        await test_a2a_final_output()
+        # await test_a2a_complex_workflow()
 
         print("\n" + "=" * 60)
         print("✅ 모든 A2A 테스트 완료!")

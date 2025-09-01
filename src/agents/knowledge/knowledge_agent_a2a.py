@@ -23,6 +23,7 @@ from src.a2a_integration.a2a_lg_server_utils import (
     build_request_handler,
     create_agent_card,
     create_agent_skill,
+    to_a2a_run_uvicorn,
 )
 from src.a2a_integration.executor import LangGraphAgentExecutor
 from src.agents.knowledge.knowledge_agent_lg import create_knowledge_agent
@@ -388,8 +389,7 @@ def main() -> None:
 
         # LangGraphAgentExecutor로 래핑
         executor = LangGraphAgentExecutor(
-            agent_class=KnowledgeA2AAgent,
-            is_debug=True
+            agent_class=KnowledgeA2AAgent
         )
 
         # A2A 서버 생성
@@ -405,22 +405,7 @@ def main() -> None:
         logger.info(f"Health Check: {url}/health")  # 헬스체크 엔드포인트
 
         # uvicorn 서버 직접 실행
-        config = uvicorn.Config(
-            server_app.build(),
-            host=host,
-            port=port,
-            log_level="info",
-            access_log=False,
-            reload=False,
-            timeout_keep_alive=1000,
-            timeout_notify=1000,
-            ws_ping_interval=30,
-            ws_ping_timeout=60,
-            limit_max_requests=None,
-            timeout_graceful_shutdown=10,
-        )
-        server = uvicorn.Server(config)
-        server.run()
+        to_a2a_run_uvicorn(server_app, host, port)
 
     except Exception as e:
         # 서버 시작 실패 시 에러 로깅 및 예외 재발생
