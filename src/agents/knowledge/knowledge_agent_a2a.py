@@ -54,6 +54,10 @@ class KnowledgeA2AAgent(BaseA2AAgent):
         """
         super().__init__()
 
+        self.model = model
+        self.check_pointer = check_pointer
+        self.is_debug = is_debug
+
         self.graph = None
         self.agent_type = 'Knowledge'
         logger.info('KnowledgeA2AAgent initialized')
@@ -62,7 +66,11 @@ class KnowledgeA2AAgent(BaseA2AAgent):
         """지식(메모리) 에이전트를 비동기로 초기화한다."""
         try:
             if self.graph is None:
-                self.graph = await create_knowledge_agent()
+                self.graph = await create_knowledge_agent(
+                    model=self.model,
+                    is_debug=self.is_debug,
+                    checkpointer=self.check_pointer,
+                )
                 logger.info("Knowledge agent graph created successfully")
             return True
         except Exception as e:
@@ -85,6 +93,12 @@ class KnowledgeA2AAgent(BaseA2AAgent):
         """
         try:
             logger.info(f'Executing KnowledgeA2AAgent with input: {input_dict}')
+
+            # Ensure the graph is initialized
+            if self.graph is None:
+                init_ok = await self.initialize()
+                if not init_ok or self.graph is None:
+                    raise RuntimeError('Knowledge agent is not initialized')
 
             # Add configuration (thread_id)
             # 우선순위: 전달된 config.thread_id > input_dict.conversation_id > 생성된 기본값

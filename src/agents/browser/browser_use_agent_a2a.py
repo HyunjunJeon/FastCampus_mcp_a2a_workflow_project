@@ -100,7 +100,9 @@ class BrowserUseA2AAgent(BaseA2AAgent):
             logger.info(f"Executing BrowserUseA2AAgent with input: {input_dict}")
 
             # Ensure agent is initialized
-            await self.initialize()
+            init_ok = await self.initialize()
+            if not init_ok or self.graph is None:
+                raise RuntimeError('Browser agent is not initialized')
 
             # Extract user request from input
             messages = input_dict.get("messages", [])
@@ -437,7 +439,7 @@ def main() -> None:
     4. A2A 서버 생성 및 실행
     """
 
-    async def async_init():
+    async def async_init() -> BrowserUseA2AAgent | None:
         """비동기 초기화 헬퍼 함수.
 
         MCP 서버와의 비동기 연결이 필요하므로 별도의 비동기 함수로 분리한다.
@@ -519,4 +521,4 @@ def main() -> None:
     except Exception as e:
         # 서버 시작 실패 시 에러 로깅 및 예외 재발생
         logger.error(f"서버 시작 중 오류 발생: {e}", exc_info=True)
-        raise 
+        raise

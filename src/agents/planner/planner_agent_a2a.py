@@ -109,6 +109,8 @@ class PlannerA2AAgent(BaseA2AAgent, BaseGraphAgent):
         try:
             # Ensure agent is initialized
             await self._ensure_agent()
+            if self.agent is None:
+                raise RuntimeError('Planner agent is not initialized')
 
             self.current_plan = []
             self.plan_metadata = {}

@@ -84,79 +84,6 @@ async def test_a2a_retrieve_knowledge():
     return result
 
 
-async def test_a2a_stream_events() -> None:
-    """A2A 스트림 이벤트 처리."""
-    print("\n" + "=" * 50)
-    print("3. A2A 스트림 이벤트 테스트")
-    print("=" * 50)
-
-    # Memory A2A Agent 초기화
-    agent = KnowledgeA2AAgent(is_debug=True)
-
-    # 샘플 스트림 이벤트들
-    events = [
-        {
-            "event": "on_chain_start",
-            "name": "analyze_request",
-            "metadata": {}
-        },
-        {
-            "event": "on_llm_stream",
-            "data": {"chunk": {"content": "메모리를 분석하고 있습니다..."}},
-        },
-        {
-            "event": "on_tool_start",
-            "name": "openmemory_save",
-        },
-        {
-            "event": "on_chain_end",
-            "name": "__end__",
-        }
-    ]
-
-    print("스트림 이벤트 처리:")
-    for event in events:
-        formatted = agent.format_stream_event(event)
-        if formatted:
-            print(f"\n이벤트 타입: {event.get('event', 'unknown')}")
-            print(f"- 상태: {formatted['status']}")
-            print(f"- 텍스트: {formatted.get('text_content', 'N/A')}")
-            print(f"- 스트림: {formatted['stream_event']}")
-            print(f"- 최종: {formatted['final']}")
-
-
-async def test_a2a_error_handling() -> None:
-    """A2A 오류 처리."""
-    print("\n" + "=" * 50)
-    print("4. A2A 오류 처리 테스트")
-    print("=" * 50)
-
-    # Memory A2A Agent 초기화
-    agent = KnowledgeA2AAgent(is_debug=True)
-
-    # 오류를 유발할 수 있는 입력
-    input_dict = {
-        "messages": []  # 빈 메시지
-    }
-
-    # A2A 실행
-    result = await agent.execute_for_a2a(input_dict)
-
-    print("오류 처리 결과:")
-    print(f"- 상태: {result['status']}")
-    print(f"- 텍스트: {result['text_content']}")
-    print(f"- 오류 메시지: {result.get('error_message', 'None')}")
-
-    # 직접 오류 포맷팅 테스트
-    error = Exception("테스트 오류")
-    error_output = agent.format_error(error, "메모리 작업 중")
-
-    print("\n직접 오류 포맷팅:")
-    print(f"- 상태: {error_output['status']}")
-    print(f"- 텍스트: {error_output['text_content']}")
-    print(f"- 오류: {error_output['error_message']}")
-
-
 async def test_a2a_complex_workflow() -> None:
     """A2A 복잡한 워크플로우."""
     print("\n" + "=" * 50)
@@ -261,16 +188,10 @@ async def main() -> None:
         # 2. 메모리 조회
         await test_a2a_retrieve_knowledge()
 
-        # 3. 스트림 이벤트
-        await test_a2a_stream_events()
-
-        # 4. 오류 처리
-        await test_a2a_error_handling()
-
-        # 5. 복잡한 워크플로우
+        # 3. 복잡한 워크플로우
         await test_a2a_complex_workflow()
 
-        # 6. 최종 출력 추출
+        # 4. 최종 출력 추출
         await test_a2a_final_output()
 
         print("\n" + "=" * 60)

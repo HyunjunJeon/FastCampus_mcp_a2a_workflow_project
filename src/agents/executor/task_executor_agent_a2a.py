@@ -109,7 +109,9 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
             )
 
             # Ensure agent is initialized
-            await self.initialize()
+            init_ok = await self.initialize()
+            if not init_ok or self.graph is None:
+                raise RuntimeError('Task executor agent is not initialized')
 
             # Extract user request from input
             messages = input_dict.get('messages', [])

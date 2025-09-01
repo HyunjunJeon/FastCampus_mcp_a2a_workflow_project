@@ -14,6 +14,7 @@ import pytz
 import structlog
 
 from langchain_core.messages import AIMessage, HumanMessage, filter_messages
+from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
@@ -26,11 +27,19 @@ from src.mcp_config_module.mcp_config import (
     MCPServerConfig,
     create_mcp_client_and_tools,
 )
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 
 logger = structlog.get_logger(__name__)
 
 load_env_file()
+
+# NOTE:
+# Playwright MCP는 연결 단위로 브라우저 컨텍스트를 유지하는 특성이 있어
+# 클라이언트/툴 객체를 재사용해야 세션이 끊기지 않는다. 호출마다 새로 만들면
+# 브라우저가 종료되어 작업이 이어지지 않는 문제가 발생한다.
+_BROWSER_MCP_CLIENT: MultiServerMCPClient | None = None
+_BROWSER_TOOLS: list[BaseTool] | None = None
 
 
 async def create_browser_agent(
@@ -61,16 +70,21 @@ async def create_browser_agent(
             'browser', is_docker=is_docker, timeout=30
         )
 
+        global _BROWSER_MCP_CLIENT, _BROWSER_TOOLS  # noqa: PLW0603
+
         if not services_ready:
             logger.warning('MCP services not ready, using fallback')
-            tools = []
+            tools = _BROWSER_TOOLS or []
+        # MCP 도구 로딩 (전역 캐시 재사용)
+        elif _BROWSER_TOOLS is not None:
+            tools = _BROWSER_TOOLS
+            logger.info(f'Reusing cached MCP tools for Browser Agent: {len(tools)} tools')
         else:
-            # MCP 도구 로딩
             try:
                 server_configs = MCPServerConfig.get_agent_server_configs('browser')
-                _, tools = await create_mcp_client_and_tools(
-                    server_configs
-                )
+                mcp_client, tools = await create_mcp_client_and_tools(server_configs)
+                _BROWSER_MCP_CLIENT = mcp_client  # 세션 유지를 위해 참조 보관
+                _BROWSER_TOOLS = tools
                 logger.info(f'Loaded {len(tools)} MCP tools for Browser Agent')
             except Exception as e:
                 logger.warning(f'MCP server not available: {e}')
