@@ -49,7 +49,7 @@ class A2AOutput(TypedDict):
 
 
 class BaseA2AAgent(ABC):
-    """A2A 통합을 지원하는 LangGraph 에이전트의 추상 기본 클래스.
+    """A2A 통합을 지원하는 추상 클래스.
 
     모든 구체 에이전트는 이 클래스를 상속하고, A2A 프로토콜 연계를 위한
     표준 인터페이스를 구현해야 합니다. 구현체는 그래프 실행의 스트리밍

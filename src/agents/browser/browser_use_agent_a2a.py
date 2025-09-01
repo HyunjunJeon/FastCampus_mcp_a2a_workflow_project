@@ -64,15 +64,6 @@ class BrowserUseA2AAgent(BaseA2AAgent):
         # Agent will be initialized asynchronously
         self.graph = None
         self.agent_type = "Browser"
-        self.NODE_NAMES = {
-            "analyze_task": "analyze_task",
-            "plan_actions": "plan_actions",
-            "navigate_to_page": "navigate_to_page",
-            "interact_with_page": "interact_with_page",
-            "extract_data": "extract_data",
-            "validate_results": "validate_results",
-            "handle_error": "handle_error",
-        }
 
         logger.info("BrowserUseA2AAgent initialized")
 
@@ -287,7 +278,7 @@ class BrowserUseA2AAgent(BaseA2AAgent):
             if error or workflow_phase == "failed":
                 return self.create_a2a_output(
                     status="failed",
-                    text_content=f"|실행 중 행 중 �(: {error}",
+                    text_content=f"실행 중에 오류가 발생했습니다: {error}",
                     metadata={
                         "workflow_phase": workflow_phase,
                         "timestamp": datetime.now(pytz.UTC).isoformat(),
@@ -348,7 +339,7 @@ class BrowserUseA2AAgent(BaseA2AAgent):
 
             return self.create_a2a_output(
                 status=status,
-                text_content=response_text or "|실행 중 행 중t D�ȵ행 중.",
+                text_content=response_text or "실행 중입니다.",
                 data_content=data_content if data_content else None,
                 metadata={
                     "workflow_phase": workflow_phase,
@@ -362,26 +353,6 @@ class BrowserUseA2AAgent(BaseA2AAgent):
         except Exception as e:
             logger.error(f"Error extracting final output: {e}")
             return self.format_error(e, "Failed to extract browser operation results")
-
-    def _get_node_display_name(self, node_name: str) -> str:
-        """노드에 대한 표시용 이름을 반환한다.
-
-        Args:
-            node_name: 내부 노드 이름
-
-        Returns:
-            str: 사용자 친화적인 표시 이름
-        """
-        display_names = {
-            "analyze_task": "행 중 �",
-            "plan_actions": "aX č",
-            "navigate_to_page": "�t� t�",
-            "interact_with_page": "�t� �8행 중",
-            "extract_data": "pt0 행 중",
-            "validate_results": "행 중 행 중",
-            "handle_error": "$X 행 중",
-        }
-        return display_names.get(node_name, node_name)
 
     def get_agent_card(self, url: str) -> AgentCard:
         """A2A AgentCard 생성.
@@ -502,9 +473,9 @@ def main() -> None:
         # Docker 환경 여부 확인 - Docker에서는 모든 인터페이스에서 수신
         is_docker = os.getenv("IS_DOCKER", "false").lower() == "true"
 
-        # 호스트 설정: Docker는 0.0.0.0, 로컬은 localhost
+        # 호스트 및 포트 설정: Docker는 0.0.0.0, 로컬은 localhost
         host = os.getenv("AGENT_HOST", "localhost" if not is_docker else "0.0.0.0")
-        port = int(os.getenv("AGENT_PORT", "8005"))
+        port = int(os.getenv("AGENT_PORT", "8000"))
         url = f"http://{host}:{port}"
 
         agent_card = a2a_agent.get_agent_card(url)
@@ -548,4 +519,4 @@ def main() -> None:
     except Exception as e:
         # 서버 시작 실패 시 에러 로깅 및 예외 재발생
         logger.error(f"서버 시작 중 오류 발생: {e}", exc_info=True)
-        raise
+        raise 

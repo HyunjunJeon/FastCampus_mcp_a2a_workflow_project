@@ -92,9 +92,9 @@ async def create_browser_agent(
             tools=tools,
             prompt=system_prompt,
             checkpointer=checkpointer,
-            name='BrowserAgent',
+            name='BrowserLangGraphAgent',
             debug=is_debug,
-            version='v1',  # Parallel tool calls = False
+            version='v2',  # NOTE: Parallel tool calls = False
         )
 
         logger.info('Browser Agent created successfully with create_react_agent')

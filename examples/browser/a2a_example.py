@@ -18,12 +18,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from a2a.types import DataPart
 
 # 프로젝트 루트를 Python 경로에 추가
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.a2a_integration.a2a_lg_client_utils_v2 import A2AClientManagerV2
+from src.a2a_integration.a2a_lg_client_utils import A2AClientManager
 
 
 def print_section(title: str) -> None:
@@ -126,7 +127,7 @@ def validate_a2a_output(response: dict[str, Any], expected_agent_type: str = "br
 async def test_streaming_vs_polling(
     url: str,
     task: str,
-    browser_url: str = "http://localhost:8052"
+    browser_url: str = "http://localhost:8005"
 ) -> dict[str, Any]:
     """스트리밍 vs 폴링 모드 비교 테스트."""
     input_data = {
@@ -139,7 +140,7 @@ async def test_streaming_vs_polling(
     print("  🔄 스트리밍 모드 테스트...")
     start_time = time.time()
     try:
-        async with A2AClientManagerV2(
+        async with A2AClientManager(
             base_url=browser_url,
             streaming=True,
             retry_delay=2.0
@@ -165,7 +166,7 @@ async def test_streaming_vs_polling(
     print("  🔄 폴링 모드 테스트...")
     start_time = time.time()
     try:
-        async with A2AClientManagerV2(
+        async with A2AClientManager(
             base_url=browser_url,
             streaming=False
         ) as client_manager:
@@ -206,7 +207,7 @@ async def test_streaming_vs_polling(
 async def run_a2a_interface_tests(
     url: str,
     task: str,
-    browser_url: str = "http://localhost:8052"
+    browser_url: str = "http://localhost:8005"
 ) -> dict[str, Any]:
     """A2A 인터페이스 핵심 메서드 테스트."""
     test_results = {
@@ -225,7 +226,7 @@ async def run_a2a_interface_tests(
 
     try:
         # execute_for_a2a 간접 테스트 (A2A 호출을 통해)
-        async with A2AClientManagerV2(base_url=browser_url) as client_manager:
+        async with A2AClientManager(base_url=browser_url) as client_manager:
             response = await client_manager.send_data_with_full_messages(input_data)
 
         test_results["execute_for_a2a"]["tested"] = True
@@ -270,7 +271,7 @@ async def check_a2a_server() -> bool:
     import httpx
 
     # Agent Card 엔드포인트로 상태 확인
-    server_url = "http://localhost:8052/.well-known/agent-card.json"
+    server_url = "http://localhost:8005/.well-known/agent-card.json"
 
     print_section("A2A 서버 상태 확인")
 
@@ -292,7 +293,7 @@ async def check_a2a_server() -> bool:
             print("\n💡 해결 방법:")
             print("   1. Browser A2A 서버 실행:")
             print("      python -m src.agents.browser.browser_use_agent_a2a")
-            print("   2. 서버가 포트 8052에서 실행 중인지 확인")
+            print("   2. 서버가 포트 8005에서 실행 중인지 확인")
             return False
 
 
@@ -302,7 +303,7 @@ async def call_browser_via_a2a(
 ) -> dict[str, Any]:
     """A2A 프로토콜을 통해 Browser Agent 호출."""
     # Browser A2A 서버 URL
-    browser_url = "http://localhost:8052"
+    browser_url = "http://localhost:8005"
 
     # 입력 데이터 준비
     input_data = {
@@ -315,9 +316,9 @@ async def call_browser_via_a2a(
     print(f"   - 작업: {task}")
 
     # 폴링 모드 사용
-    async with A2AClientManagerV2(base_url=browser_url) as client_manager:
+    async with A2AClientManager(base_url=browser_url) as client_manager:
         try:
-            response_data = await client_manager.send_data_with_full_messages(input_data)
+            response_data = await client_manager.send_parts(parts=[DataPart(data=input_data)])
 
             if isinstance(response_data, list) and response_data:
                 return response_data[-1]
@@ -396,30 +397,30 @@ async def main() -> None:
     print_section("브라우저 자동화 요청 준비")
 
     test_cases: list[dict[str, Any]] = [
-        {
-            "name": "웹 페이지 탐색 및 데이터 추출",
-            "url": "https://example.com",
-            "task": "페이지에 접속하여 제목과 본문을 추출해주세요",
-            "test_type": "standard"
-        },
-        {
-            "name": "스트리밍 vs 폴링 모드 비교 테스트",
-            "url": "https://example.com",
-            "task": "페이지 정보를 수집해주세요",
-            "test_type": "streaming_vs_polling"
-        },
-        {
-            "name": "A2A 인터페이스 메서드 검증 테스트",
-            "url": "https://example.com",
-            "task": "페이지 타이틀을 가져와주세요",
-            "test_type": "a2a_interface"
-        },
-        {
-            "name": "A2AOutput 표준 형식 검증 테스트",
-            "url": "https://example.com",
-            "task": "페이지 메타 정보를 수집해주세요",
-            "test_type": "output_validation"
-        },
+        # {
+        #     "name": "웹 페이지 탐색 및 데이터 추출",
+        #     "url": "https://example.com",
+        #     "task": "페이지에 접속하여 제목과 본문을 추출해주세요",
+        #     "test_type": "standard"
+        # },
+        # {
+        #     "name": "스트리밍 vs 폴링 모드 비교 테스트",
+        #     "url": "https://example.com",
+        #     "task": "페이지 정보를 수집해주세요",
+        #     "test_type": "streaming_vs_polling"
+        # },
+        # {
+        #     "name": "A2A 인터페이스 메서드 검증 테스트",
+        #     "url": "https://example.com",
+        #     "task": "페이지 타이틀을 가져와주세요",
+        #     "test_type": "a2a_interface"
+        # },
+        # {
+        #     "name": "A2AOutput 표준 형식 검증 테스트",
+        #     "url": "https://example.com",
+        #     "task": "페이지 메타 정보를 수집해주세요",
+        #     "test_type": "output_validation"
+        # },
         {
             "name": "복잡한 워크플로우 테스트",
             "url": "https://www.google.com",

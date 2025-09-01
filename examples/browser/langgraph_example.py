@@ -6,7 +6,7 @@ Playwright MCP 도구를 활용하여 웹 브라우저 자동화 작업을 수�
 
 실행 전제 조건:
 - Playwright MCP 서버가 실행 중이어야 함
-- 포트 8052에서 활성화되어 있어야 함
+- 포트 8093에서 활성화되어 있어야 함
 """
 
 import asyncio
@@ -68,27 +68,27 @@ async def main() -> None:
 
         # 테스트 케이스 목록
         test_cases = [
-            {
-                "name": "웹 페이지 탐색",
-                "url": "https://example.com",
-                "action_type": "navigate",
-                "task": "페이지에 접속하여 타이틀을 확인해주세요",
-                "context_id": "test_navigate"
-            },
-            {
-                "name": "데이터 추출",
-                "url": "https://example.com",
-                "action_type": "extract",
-                "task": "페이지의 메인 헤딩과 본문 텍스트를 추출해주세요",
-                "context_id": "test_extract"
-            },
-            {
-                "name": "폼 상호작용",
-                "url": "https://www.google.com",
-                "action_type": "form",
-                "task": "검색창에 'LangGraph tutorial'을 입력하고 검색해주세요",
-                "context_id": "test_form"
-            },
+            # {
+            #     "name": "웹 페이지 탐색",
+            #     "url": "https://example.com",
+            #     "action_type": "navigate",
+            #     "task": "페이지에 접속하여 타이틀을 확인해주세요",
+            #     "context_id": "test_navigate"
+            # },
+            # {
+            #     "name": "데이터 추출",
+            #     "url": "https://example.com",
+            #     "action_type": "extract",
+            #     "task": "페이지의 메인 헤딩과 본문 텍스트를 추출해주세요",
+            #     "context_id": "test_extract"
+            # },
+            # {
+            #     "name": "폼 상호작용",
+            #     "url": "https://www.google.com",
+            #     "action_type": "form",
+            #     "task": "검색창에 'LangGraph tutorial'을 입력하고 검색해주세요",
+            #     "context_id": "test_form"
+            # },
             {
                 "name": "복잡한 워크플로우",
                 "url": "https://www.google.com",

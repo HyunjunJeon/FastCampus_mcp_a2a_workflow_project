@@ -237,25 +237,34 @@ class A2AMessageEngine:
             )
 
             # Docker 호스트명 변환 (로컬 개발용)
-            if (
-                self.agent_card.url
-                and os.getenv('IS_DOCKER', 'false').lower() != 'true'
-            ):
-                docker_hosts = [
-                    'data-collector-agent',
-                    'analysis-agent',
-                    'trading-agent',
-                    'supervisor-agent',
-                ]
-                for docker_host in docker_hosts:
-                    if docker_host in self.agent_card.url:
-                        self.agent_card.url = self.agent_card.url.replace(
-                            f'http://{docker_host}', 'http://localhost'
-                        )
-                        logger.debug(
-                            f'Converted Docker URL to localhost: {self.agent_card.url}'
-                        )
-                        break
+            # if (
+            #     self.agent_card.url
+            #     and os.getenv('IS_DOCKER', 'false').lower() != 'true'
+            # ):
+            #     docker_hosts = [
+            #         'data-collector-agent',
+            #         'analysis-agent',
+            #         'trading-agent',
+            #         'supervisor-agent',
+            #     ]
+            #     for docker_host in docker_hosts:
+            #         if docker_host in self.agent_card.url:
+            #             self.agent_card.url = self.agent_card.url.replace(
+            #                 f'http://{docker_host}', 'http://localhost'
+            #             )
+            #             logger.debug(
+            #                 f'Converted Docker URL to localhost: {self.agent_card.url}'
+            #             )
+            #             break
+            # 강제: 실제 통신은 사용자가 지정한 base_url을 신뢰한다
+            # 이유: AgentCard.url 이 컨테이너 내부 호스트명/포트를 가리킬 수 있어
+            #       로컬/포워딩 환경에서 불일치가 자주 발생함
+            if self.agent_card and getattr(self.agent_card, 'url', None):
+                original_url = self.agent_card.url
+                self.agent_card.url = self.base_url
+                logger.debug(
+                    f'Overriding agent card url from {original_url} to {self.agent_card.url}'
+                )
 
             # A2A 클라이언트 설정
             config = ClientConfig(

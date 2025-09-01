@@ -6,7 +6,7 @@ and the A2A protocol, leveraging standardized output formats for both streaming 
 한글 설명:
 - 본 모듈은 LangGraph 기반 에이전트를 A2A 프로토콜과 자연스럽게 연동하기 위한 실행기(Executor)를 제공합니다.
 - 각 에이전트는 표준화된 A2A 인터페이스(`BaseA2AAgent`)를 구현한다고 가정하며, 이 인터페이스를 통해 결과를 규격화된
-  메시지 파츠(`TextPart`, `DataPart`)로 변환하여 스트리밍/블로킹 모드 모두에서 일관된 출력 형태를 보장합니다.
+  메시지 파츠(`TextPart`, `DataPart`)로 변환하여 스트리밍/풀링 모드 모두에서 일관된 출력 형태를 보장합니다.
 - 목표는 에이전트별 커스텀 결과 추출/스트리밍 로직을 최소화하고, 공통 실행 흐름(초기화 → 입력 처리 → 실행 → 아티팩트 생성
   → 상태 업데이트/이벤트 전송)을 단순하고 예측 가능하게 만드는 것입니다.
 """
@@ -44,8 +44,8 @@ from src.base.a2a_interface import A2AOutput, BaseA2AAgent
 
 logger = structlog.get_logger(__name__)
 
-class LangGraphAgentExecutor(AgentExecutor):
-    """Simplified A2A Agent Executor for LangGraph agents with A2A interface.
+class LangGraphAgentExecutor(AgentExecutor): # 기존 프로젝트1에서는 V2
+    """A2A Agent Executor for LangGraph agents with A2A interface.
 
     This executor leverages the standardized A2A interface implemented by each
     LangGraph agent, eliminating the need for custom result extractors and
@@ -54,7 +54,7 @@ class LangGraphAgentExecutor(AgentExecutor):
     한글 설명:
     - 각 LangGraph 에이전트가 제공하는 표준 A2A 인터페이스를 활용하여 실행 결과를 A2A 메시지로 변환합니다.
     - 별도의 에이전트별 커스텀 파서 없이도 공통 규격(`A2AOutput`)을 통해 텍스트/데이터 파츠를 생성하고,
-      스트리밍/블로킹 모드를 모두 지원합니다.
+      스트리밍/풀링 모드를 모두 지원합니다.
     - 설계 의도: 에이전트 교체/확장 시 실행기의 변경을 최소화하고, 상태 업데이트/이벤트 전송을 일관되게 처리합니다.
     """
 
@@ -131,7 +131,7 @@ class LangGraphAgentExecutor(AgentExecutor):
         한글 설명(흐름 개요):
         1) 에이전트 초기화 보장 → 2) 입력 정규화(JSON 페이로드 또는 사용자 메시지) →
         3) 작업(Task) 생성/복구 및 상태 추적자(`TaskUpdater`) 구성 →
-        4) 실행 모드 결정(블로킹/스트리밍) → 5) 실행 및 결과를 A2A 아티팩트로 래핑하여 이벤트 전송 →
+        4) 실행 모드 결정(풀링/스트리밍) → 5) 실행 및 결과를 A2A 아티팩트로 래핑하여 이벤트 전송 →
         6) 완료 상태로 마무리. 오류 발생 시 실패 상태로 업데이트하고 에러 메시지 전송.
         설계 의도: 상태 전이(제출 → 작업 중 → 완료/실패)를 중앙화하여 API 소비자가
         일관된 생명주기를 관찰하도록 합니다.
@@ -197,7 +197,7 @@ class LangGraphAgentExecutor(AgentExecutor):
             # 작업 상태를 "working"으로 일관되게 전환합니다.
             await self.updater.update_status(TaskState.working)
             if is_blocking or not self.config.enable_streaming:
-                # 블로킹 모드: 최종 결과만 전송합니다.
+                # 풀링 모드: 최종 결과만 전송합니다.
                 output = await self._execute_blocking(input_dict, context_id)
                 logger.info(f'Blocking execution output: {output}')
             else:
@@ -314,7 +314,7 @@ class LangGraphAgentExecutor(AgentExecutor):
             # For streaming, we need to hook into the agent's graph events
             # This requires the agent to have a graph attribute
             if not hasattr(self.agent, 'graph'):
-                # 스트리밍 미지원 에이전트는 블로킹 모드로 폴백합니다.
+                # 스트리밍 미지원 에이전트는 풀링 모드로 폴백합니다.
                 logger.warning(
                     "Agent doesn't support streaming, falling back to blocking"
                 )
@@ -407,10 +407,10 @@ class LangGraphAgentExecutor(AgentExecutor):
             parts = []
 
             if text_content:
-                parts.append(Part(root=TextPart(text=text_content)))
+                parts.append(TextPart(text=text_content))
 
             if data_content:
-                parts.append(Part(root=DataPart(data=data_content)))
+                parts.append(DataPart(data=data_content))
 
             # Ensure we always send something - create fallback content if parts is empty
             # 폴백: 텍스트/데이터가 전혀 없을 경우, 사용자가 최소한의 진행 상황을 인지하도록
@@ -425,7 +425,7 @@ class LangGraphAgentExecutor(AgentExecutor):
                 if error_msg:
                     fallback_text += f': {error_msg}'
 
-                parts.append(Part(root=TextPart(text=fallback_text)))
+                parts.append(TextPart(text=fallback_text))
                 logger.warning(
                     f'No content provided, sending fallback text: {fallback_text}'
                 )
@@ -458,6 +458,8 @@ class LangGraphAgentExecutor(AgentExecutor):
             )
             await updater.cancel()
             logger.info(f'Task {context.task_id} cancelled')
+            # NOTE: LangGraph 실제로 취소되도록 해야함
+            raise RuntimeError('Task cancelled')
 
     # Helper methods
 
@@ -500,7 +502,7 @@ class LangGraphAgentExecutor(AgentExecutor):
         """Check if blocking mode is requested.
 
         한글 설명:
-        - 컨텍스트 요청 설정에 `blocking=True`가 지정된 경우 블로킹 모드로 판단합니다.
+        - 컨텍스트 요청 설정에 `blocking=True`가 지정된 경우 풀링 모드로 판단합니다.
         - 설계 의도: 호출자(클라이언트)가 명시적으로 동기/비동기 전략을 제어할 수 있게 합니다.
         """
         if hasattr(context, 'request') and context.request and (
