@@ -745,7 +745,7 @@ def get_executor_user_prompt(**kwargs) -> str:
 
     # 각 작업 타입별 프롬프트 템플릿
     prompt_templates = {
-        'code': f"""Execute the following code task using Composio CodeInterpreter.
+        'code': f"""Execute the following code task using CodeInterpreter.
 
 Task: {task_description}
 Parameters: {parameters or 'None'}
@@ -828,7 +828,7 @@ Instructions:
 5. Link outputs between steps appropriately
 6. Provide a comprehensive summary of the workflow execution
 
-Coordinate between Composio and Notion tools for seamless integration.""",
+Coordinate between CodeInterpreter and Notion tools for seamless integration.""",
 
         'report': f"""Generate a comprehensive report combining analysis and documentation.
 

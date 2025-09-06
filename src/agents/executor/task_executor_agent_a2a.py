@@ -263,7 +263,6 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
                     for tool in [
                         'sandbox',
                         'notion',
-                        'composio',
                         'codeinterpreter',
                     ]
                 ):
