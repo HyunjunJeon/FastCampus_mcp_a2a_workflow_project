@@ -27,7 +27,6 @@ from a2a.types import (
     Artifact,
     DataPart,
     Message,
-    Part,
     Task,
     TaskState,
     TaskStatus,

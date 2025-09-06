@@ -187,12 +187,12 @@ async def test_a2a_notion_report_only() -> dict[str, Any]:
 
     input_dict = {
         "messages": [
-            {"role": "user", "content": "주간 보고서를 Notion에 추가해줘"}
+            {"role": "user", "content": "A2A 월간 보고서를 Notion에 추가해줘"}
         ],
         "notion_config": {
-            "title": "주간 보고서",
+            "title": "A2A 월간 보고서",
             "markdown": """
-# 주간 보고서
+# A2A 월간 보고서
 
 ## 요약
 - 이번 주 핵심 지표 검토
@@ -291,56 +291,6 @@ for item in sorted(sales_data, key=lambda x: x["total"], reverse=True):
 
     return result
 
-
-async def test_a2a_stream_events() -> None:
-    """A2A 스트림 이벤트 처리."""
-    print("\n" + "-" * 40)
-    print("4. A2A 스트림 이벤트 테스트")
-    print("-" * 40)
-
-    # Executor A2A Agent 초기화
-    agent = TaskExecutorA2AAgent(is_debug=True)
-
-    # 샘플 스트림 이벤트들
-    events = [
-        {
-            "event": "on_chain_start",
-            "name": "analyze_task",
-            "metadata": {}
-        },
-        {
-            "event": "code_execution",
-            "language": "python",
-            "code": "print('Hello, World!')"
-        },
-        {
-            "event": "on_tool_start",
-            "name": "codeinterpreter_execute",
-        },
-        {
-            "event": "notion_operation",
-            "operation_type": "create",
-            "resource_type": "page"
-        },
-        {
-            "event": "on_chain_end",
-            "name": "__end__",
-        }
-    ]
-
-    print("스트림 이벤트 처리:")
-    for event in events:
-        formatted = agent.format_stream_event(event)
-        if formatted:
-            print(f"\n이벤트 타입: {event.get('event', 'unknown')}")
-            print(f"- 상태: {formatted['status']}")
-            print(f"- 텍스트: {formatted.get('text_content', 'N/A')}")
-            if formatted.get('data_content'):
-                print(f"- 데이터: {formatted['data_content']}")
-            print(f"- 스트림: {formatted['stream_event']}")
-            print(f"- 최종: {formatted['final']}")
-
-
 async def test_a2a_multi_tool() -> dict[str, Any]:
     """A2A 다중 도구 사용."""
     print("\n" + "-" * 40)
@@ -394,44 +344,6 @@ print(f"평균: {average}")
     print(f"- 텍스트: {result['text_content']}")
     if result.get('data_content') and result['data_content'].get('tool_usage'):
         print(f"- 사용된 도구: {list(result['data_content']['tool_usage'].keys())}")
-
-    return result
-
-
-async def test_a2a_error_handling() -> dict[str, Any]:
-    """A2A 오류 처리."""
-    print("\n" + "-" * 40)
-    print("6. A2A 오류 처리 테스트")
-    print("-" * 40)
-
-    # Executor A2A Agent 초기화
-    agent = TaskExecutorA2AAgent(is_debug=True)
-
-    # 오류가 있는 코드
-    input_dict = {
-        "messages": [
-            {"role": "user", "content": "오류가 있는 코드를 실행해주세요"}
-        ],
-        "code_to_execute": """
-# 오류 발생 코드
-print("시작")
-result = 10 / 0  # ZeroDivisionError
-print("끝")  # 실행되지 않음
-""",
-        "language": "python"
-    }
-
-    # A2A 실행
-    result = await agent.execute_for_a2a(input_dict)
-
-    print("오류 처리 결과:")
-    print(f"- 상태: {result['status']}")
-    print(f"- 텍스트: {result['text_content']}")
-    if result['status'] == 'failed' and result.get('data_content'):
-        print(f"- 실패한 단계 수: {result['data_content'].get('failed_steps_count', 0)}")
-        for step in result['data_content'].get('failed_steps', []):
-            print(f"  - {step.get('step_id')}: {step.get('error_message')}")
-    print(f"- 오류 메시지: {result.get('error_message', 'None')}")
 
     return result
 
@@ -508,72 +420,7 @@ print(f"평균: {mean:.2f}, 중앙값: {median}, 표준편차: {stdev:.2f}")
         result = await agent.execute_for_a2a(input_dict)
 
         print(f"- 상태: {result['status']}")
-        print(f"- 응답: {result['text_content'][:100]}...")
-
-
-async def test_a2a_final_output() -> None:
-    """A2A 최종 출력 추출."""
-    print("\n" + "-" * 40)
-    print("8. A2A 최종 출력 추출 테스트")
-    print("-" * 40)
-
-    # Executor A2A Agent 초기화
-    agent = TaskExecutorA2AAgent(is_debug=True)
-
-    # 샘플 최종 상태
-    final_state = {
-        "workflow_phase": "completed",
-        "task_completed": True,
-        "task_type": "code_execution",
-        "final_result": {
-            "total_steps": 3,
-            "successful_steps": 3,
-            "failed_steps": 0,
-            "code_outputs": [
-                {
-                    "language": "python",
-                    "output": "계산 완료: 42",
-                    "execution_time": 0.5
-                }
-            ],
-            "notion_results": [
-                {
-                    "operation_type": "create",
-                    "resource_type": "page",
-                    "success": True
-                }
-            ],
-            "summary": "작업 완료: 3/3 단계 성공"
-        },
-        "completed_steps": [
-            {
-                "step_id": "step_1",
-                "tool_name": "codeinterpreter",
-                "success": True
-            },
-            {
-                "step_id": "step_2",
-                "tool_name": "notion",
-                "success": True
-            }
-        ],
-        "tool_usage_stats": {
-            "codeinterpreter": {"calls": 2, "success": 2},
-            "notion": {"calls": 1, "success": 1}
-        }
-    }
-
-    # 최종 출력 추출
-    final_output = agent.extract_final_output(final_state)
-
-    print("최종 출력:")
-    print(f"- 상태: {final_output['status']}")
-    print(f"- 텍스트: {final_output['text_content']}")
-    print("- 데이터 포함 항목:")
-    if final_output.get('data_content'):
-        for key in final_output['data_content']:
-            print(f"  - {key}")
-    print(f"- 메타데이터: {final_output['metadata']}")
+        print(f"- 응답: {result['text_content']}")
 
 
 async def main() -> None:
@@ -583,28 +430,19 @@ async def main() -> None:
 
     try:
         # 1. 코드 실행
-        await test_a2a_code_execution()
+        # await test_a2a_code_execution()
 
         # 2. Notion 작업
-        await test_a2a_notion_operation()
+        # await test_a2a_notion_operation()
 
         # 3. 데이터 처리
-        await test_a2a_data_processing()
+        # await test_a2a_data_processing()
 
-        # 4. 스트림 이벤트
-        await test_a2a_stream_events()
+        # 4. 다중 도구 사용
+        # await test_a2a_multi_tool()
 
-        # 5. 다중 도구 사용
-        await test_a2a_multi_tool()
-
-        # 6. 오류 처리
-        await test_a2a_error_handling()
-
-        # 7. 복잡한 워크플로우
+        # 5. 복잡한 워크플로우
         await test_a2a_complex_workflow()
-
-        # 8. 최종 출력 추출
-        await test_a2a_final_output()
 
         print("\n" + "-" * 40)
         print("[성공] 모든 A2A 테스트 완료!")
@@ -616,7 +454,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     # 기본: 전체 예제 실행
-    # asyncio.run(main())
-
-    # 노션 전용 보고서 예제만 실행하려면 아래 라인을 사용하세요.
-    asyncio.run(test_a2a_notion_report_only())
+    asyncio.run(main())

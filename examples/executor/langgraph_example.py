@@ -2,10 +2,10 @@
 """Task Executor Agent - LangGraph 직접 호출 예제.
 
 Task Executor Agent를 직접 import하여 사용하는 예제입니다.
-Composio CodeInterpreter와 Notion MCP를 활용하여 코드 실행 및 문서 관리 작업을 수행합니다.
+CodeInterpreter와 Notion MCP를 활용하여 코드 실행 및 문서 관리 작업을 수행합니다.
 
 실행 전제 조건:
-- Composio CodeInterpreter 서비스가 활성화되어 있어야 함
+- CodeInterpreter 서비스가 활성화되어 있어야 함
 - Notion MCP 서버가 실행 중이어야 함 (문서 작업 시)
 """
 
@@ -248,7 +248,7 @@ LangGraph와 MCP 도구를 사용한 멀티 에이전트 시스템의 아키텍�
 
 ### 3. Executor Agent
 - 이중 기능:
-  - **Composio CodeInterpreter**: Python/JavaScript 실행
+  - ** CodeInterpreter**: Python/JavaScript 실행
   - **Notion MCP**: 문서 및 데이터베이스 관리
 - 코드와 문서를 결합한 복잡한 워크플로우 처리
 
@@ -264,7 +264,7 @@ LangGraph와 MCP 도구를 사용한 멀티 에이전트 시스템의 아키텍�
 | 프레임워크 | create_react_agent 패턴의 LangGraph |
 | LLM | GPT-4 계열 모델 |
 | 메모리 | sentence transformers와 SQLite-vec |
-| 코드 실행 | Composio CodeInterpreter 샌드박스 |
+| 코드 실행 |  CodeInterpreter 샌드박스 |
 | 웹 자동화 | Playwright MCP |
 | 문서화 | Notion MCP |
 
@@ -346,9 +346,9 @@ async def test_notion_report_only() -> dict:
     )
 
     notion_params = {
-        "title": "주간 보고서",
+        "title": "LangGraph 주간 보고서",
         "markdown": """
-# 주간 보고서
+# LangGraph 주간 보고서
 
 ## 요약
 - 이번 주 핵심 지표 검토
@@ -402,7 +402,8 @@ async def test_combined_workflow() -> dict:
     4. 분석 결과와 인사이트를 메모리에 저장
     5. 경영진 요약 보고서 생성
 
-    데이터 처리에는 Python pandas를 사용하고 명확한 인사이트를 제공하세요.
+    데이터 처리에는 Python pandas를 사용하고 명확한 인사이트를 제공한뒤
+    Notion API MCP 를 활용하여 결과를 Notion에 저장해주세요
     """
 
     workflow_params = {
@@ -438,17 +439,7 @@ for metric, stat in stats.items():
     print(f"  평균: {stat['avg']:.2f}")
     print(f"  최소: {stat['min']:.2f}")
     print(f"  최대: {stat['max']:.2f}")
-
-# Notion용 내보내기
-report_data = json.dumps(stats, indent=2)
-print(f"\\nJSON 보고서:\\n{report_data}")
 """
-            },
-            {
-                "name": "Notion 보고서 생성",
-                "tool": "notion",
-                "title": "성과 분석 보고서",
-                "template": "metrics_dashboard"
             }
         ]
     }
@@ -467,62 +458,6 @@ print(f"\\nJSON 보고서:\\n{report_data}")
     print(f"- 성공: {result.get('success')}")
 
     return result
-
-
-async def test_error_handling() -> dict:
-    """오류 처리 테스트.
-
-    의도적인 오류 상황에서의 처리와 복구를 테스트합니다.
-    """
-    print("\n" + "=" * 50)
-    print("5. 오류 처리 테스트")
-    print("=" * 50)
-
-    # Executor Agent 생성
-    agent = await create_executor_agent(is_debug=True)
-
-    # 오류가 있는 코드
-    error_code = """
-print("실행 시작...")
-
-try:
-    # NameError 발생
-    result = undefined_variable + 10
-    print(f"결과: {result}")
-except NameError as e:
-    print(f"❌ NameError 포착: {e}")
-    print("복구 시도 중...")
-
-    # 복구 로직
-    undefined_variable = 5
-    result = undefined_variable + 10
-    print(f"✅ 복구 완료! 결과: {result}")
-except Exception as e:
-    print(f"예상치 못한 오류: {e}")
-finally:
-    print("정리 작업 완료")
-
-print("오류 복구 후 성공적으로 실행 완료")
-"""
-
-    # 오류 처리와 함께 실행
-    result = await execute_task(
-        agent=agent,
-        task_description="오류 처리 및 복구가 포함된 코드 실행",
-        task_type="code",
-        parameters={"code": error_code},
-        context_id="test_error"
-    )
-
-    print("오류 처리 결과:")
-    print(f"- 상태: {result.get('workflow_status')}")
-    print(f"- 성공: {result.get('success')}")
-
-    if result.get('error'):
-        print(f"- 처리된 오류: {result.get('error')}")
-
-    return result
-
 
 async def main() -> None:
     """메인 실행 함수."""
@@ -554,12 +489,8 @@ async def main() -> None:
         all_results.append(result3)
 
         # 테스트 4: 통합 워크플로우
-        result4 = await test_combined_workflow()
+        result4 = await test_combined_workflow() # Quiz: 꼭 이 부분을 Notion 에 저장해주세요!
         all_results.append(result4)
-
-        # 테스트 5: 오류 처리
-        result5 = await test_error_handling()
-        all_results.append(result5)
 
         # 3. 결과 요약
         print_section("테스트 결과 요약")
@@ -593,7 +524,7 @@ async def main() -> None:
 
         print_section("테스트 완료")
         print("\nTask Executor Agent 핵심 기능:")
-        print("  - Composio CodeInterpreter로 Python/JavaScript 실행")
+        print("  - CodeInterpreter로 Python/JavaScript 실행")
         print("  - Notion MCP로 문서 관리")
         print("  - 코드와 문서 간 원활한 통합")
         print("  - 자동 패키지 설치")
@@ -616,7 +547,6 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # 비동기 테스트 실행
-    # asyncio.run(main())
+    asyncio.run(main())
     # 노션 전용 보고서 예제만 실행하려면 아래 라인을 사용하세요.
-    asyncio.run(test_notion_report_only())
+    # asyncio.run(test_notion_report_only())

@@ -12,7 +12,6 @@ from typing import Any
 
 import pytz
 import structlog
-import uvicorn
 
 from a2a.types import AgentCard
 from langchain_core.language_models import BaseChatModel
@@ -320,7 +319,7 @@ class KnowledgeA2AAgent(BaseA2AAgent):
         _skill = create_agent_skill(
             skill_id="knowledge",
             name="지식(메모리) 관리",
-            description="지식(메모리) 관리를 위한 투자전문 Agent 입니다.",
+            description="지식(메모리) 관리를 위한 Agent 입니다.",
             tags=["knowledge", "memory", "investment"],
             examples=["지식(메모리) 관리를 해주세요"],
         )
@@ -405,7 +404,14 @@ def main() -> None:
         logger.info(f"Health Check: {url}/health")  # 헬스체크 엔드포인트
 
         # uvicorn 서버 직접 실행
-        to_a2a_run_uvicorn(server_app, host, port)
+        to_a2a_run_uvicorn(
+            server_app=server_app,
+            host=host,
+            port=port,
+            graph=a2a_agent.graph,
+            agent_card=agent_card,
+            enable_schema_endpoint=True,
+        )
 
     except Exception as e:
         # 서버 시작 실패 시 에러 로깅 및 예외 재발생

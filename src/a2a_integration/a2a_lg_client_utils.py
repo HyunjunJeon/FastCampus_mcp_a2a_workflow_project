@@ -1,6 +1,6 @@
-"""A2A Client Manager V2 - A2A 클라이언트.
+"""A2A Client Manager - A2A Python Client.
 
-이 모듈은 A2A(AI-to-AI) 표준 프로토콜을 따르는 클라이언트 유틸리티를 제공합니다.
+이 모듈은 A2A(Agent-to-Agent) 표준 프로토콜을 따르는 클라이언트 유틸리티를 제공합니다.
 핵심 설계 목표는 다음과 같습니다.
 
 1) 안정성: 전송/폴링/재시도/에러 처리까지 엔진 레벨에서 일관성 있게 관리합니다.
@@ -29,7 +29,7 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
+import types
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -48,6 +48,7 @@ from a2a.client import (
     ClientFactory,
 )
 from a2a.client.auth.credentials import CredentialService
+from a2a.client.auth.interceptor import AuthInterceptor
 from a2a.client.helpers import create_text_message_object
 from a2a.types import (
     AgentCard,
@@ -290,8 +291,6 @@ class A2AMessageEngine:
             # 인터셉터 추가 (인증이 필요한 경우)
             interceptors = []
             if self.credential_service:
-                from a2a.client.auth.interceptor import AuthInterceptor
-
                 interceptors.append(AuthInterceptor(self.credential_service))
                 logger.debug('Auth interceptor added')
 
@@ -449,7 +448,7 @@ class A2AMessageEngine:
         logger.info(f'Successfully completed NEW task processing: {task_id}')
         return response
 
-    async def _process_event(self, event) -> dict[str, Any]:
+    async def _process_event(self, event: Any) -> dict[str, Any]:
         """단일 이벤트에서 의미 있는 Part를 추출합니다.
 
         이벤트는 구현체에 따라 ``(task, ...)`` 형태의 튜플로 전달될 수 있으며,
@@ -529,8 +528,9 @@ class A2AMessageEngine:
             if (
                 hasattr(last_message, 'role')
                 and last_message.role.value == 'agent'
+                and hasattr(last_message, 'parts')
+                and last_message.parts
             ):
-                if hasattr(last_message, 'parts') and last_message.parts:
                     logger.info(
                         f'Agent message has {len(last_message.parts)} parts'
                     )
@@ -644,7 +644,7 @@ class A2AMessageEngine:
 
         return result
 
-    async def execute_with_retry(self, func, *args, **kwargs):
+    async def execute_with_retry(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """재시도 로직을 적용하여 비동기 함수를 실행합니다.
 
         - A2AClientError, httpx.HTTPError에 대해 지수 백오프를 적용합니다.
@@ -781,10 +781,11 @@ class A2AMessageEngine:
             query_params = TaskQueryParams(id=task_id, history_length=20)
 
             # Transport layer를 통한 직접 호출 시도
+            # 접근이 불가피한 내부 속성 사용 (공식 API 미제공)
             if hasattr(self.client, '_transport') and hasattr(
-                self.client._transport, 'get_task'
+                self.client._transport, 'get_task'  # noqa: SLF001
             ):
-                task = await self.client._transport.get_task(query_params)
+                task = await self.client._transport.get_task(query_params)  # noqa: SLF001
                 logger.info(
                     f'Successfully retrieved task via transport layer: {task_id}'
                 )
@@ -865,6 +866,38 @@ class A2AMessageEngine:
             # 에러가 발생하면 새 task 생성으로 fallback
             return None, True
 
+    def _get_task_state_str(self, task: Any) -> str:
+        """Task 상태 문자열을 소문자로 반환합니다.
+
+        Args:
+            task: 상태를 확인할 Task 객체.
+
+        Returns:
+            str: 상태 문자열(없으면 빈 문자열).
+        """
+        task_status_obj = getattr(task, 'status', None)
+        current_state = (
+            getattr(task_status_obj, 'state', None) if task_status_obj else None
+        )
+        return str(current_state).lower() if current_state else ''
+
+    def _task_has_outputs(self, task: Any) -> bool:
+        """아티팩트나 agent 히스토리가 있어 완료로 간주할 수 있는지 확인합니다.
+
+        Args:
+            task: 확인할 Task 객체.
+
+        Returns:
+            bool: 산출물이 관측되면 True.
+        """
+        if hasattr(task, 'artifacts') and task.artifacts:
+            return True
+        if hasattr(task, 'history') and task.history:
+            for msg in task.history:
+                if hasattr(msg, 'role') and str(msg.role).lower() == 'agent':
+                    return True
+        return False
+
     async def _wait_for_task_completion(
         self, task_id: str, max_wait: int = 120, poll_interval: float = 10.0
     ) -> Any | None:
@@ -889,6 +922,7 @@ class A2AMessageEngine:
 
         consecutive_failures = 0
         max_consecutive_failures = 5
+        result_task: Any | None = None
 
         for attempt in range(int(max_wait / poll_interval)):
             try:
@@ -904,7 +938,7 @@ class A2AMessageEngine:
                         logger.error(
                             f'Too many consecutive failures retrieving task {task_id}'
                         )
-                        return None
+                        break
 
                     await asyncio.sleep(
                         poll_interval * (1 + consecutive_failures * 0.5)
@@ -913,46 +947,26 @@ class A2AMessageEngine:
 
                 consecutive_failures = 0  # 성공 시 리셋
 
-                # Task 상태 확인
-                task_status_obj = getattr(task, 'status', None)
-                logger.info(f'Task status object: {task_status_obj}')
-                if task_status_obj:
-                    current_state = getattr(task_status_obj, 'state', None)
-                    state_str = (
-                        str(current_state).lower() if current_state else ''
-                    )
+                # Task 상태 확인 간소화
+                state_str = self._get_task_state_str(task)
+                logger.info(
+                    f'Attempt {attempt + 1}: Task {task_id} state_str: {state_str}'
+                )
 
+                if (
+                    'completed' in state_str
+                    or 'failed' in state_str
+                    or 'cancelled' in state_str
+                ):
+                    result_task = task
+                    break
+
+                if self._task_has_outputs(task):
                     logger.info(
-                        f'Attempt {attempt + 1}: Task {task_id} state: {current_state} state_str: {state_str}'
+                        f'Task {task_id} has outputs (artifacts/history) - assuming completed'
                     )
-
-                    if 'completed' in state_str:
-                        # logger.info(f"Task {task_id} completed successfully after {attempt + 1} attempts")
-                        return task
-                    if 'failed' in state_str or 'cancelled' in state_str:
-                        # logger.warning(f"Task {task_id} failed or cancelled")
-                        return (
-                            task  # 실패한 task도 반환하여 에러 정보 추출 가능
-                        )
-                    if 'working' in state_str or 'running' in state_str:
-                        # logger.debug(f"Task {task_id} still in progress...")
-                        pass
-                    # 알 수 없는 상태면 내용이 있는지 확인
-                    elif hasattr(task, 'artifacts') and task.artifacts:
-                        logger.info(
-                            f'Task {task_id} has artifacts despite unknown state - assuming completed'
-                        )
-                        return task
-                    elif hasattr(task, 'history') and task.history:
-                        for msg in task.history:
-                            if (
-                                hasattr(msg, 'role')
-                                and str(msg.role).lower() == 'agent'
-                            ):
-                                logger.info(
-                                    f'Task {task_id} has agent messages - assuming completed'
-                                )
-                                return task
+                    result_task = task
+                    break
 
                 await asyncio.sleep(poll_interval)
 
@@ -966,11 +980,14 @@ class A2AMessageEngine:
                     logger.error(
                         'Too many consecutive polling failures, giving up'
                     )
-                    return None
+                    break
 
                 await asyncio.sleep(
                     poll_interval * (1 + consecutive_failures * 0.5)
                 )
+
+        if result_task is not None:
+            return result_task
 
         logger.warning(
             f'Enhanced task completion polling timed out after {max_wait}s'
@@ -1228,7 +1245,12 @@ class A2AClientManager:
         await self.initialize()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
         """A2AClientManager를 정리합니다."""
         await self.close()
 
@@ -1239,7 +1261,7 @@ class A2AClientManager:
         # 레거시 호환성을 위한 속성 매핑
         self.client = self.engine.client
         self.agent_card = self.engine.agent_card
-        self._httpx_client = self.engine._httpx_client
+        self._httpx_client = self.engine._httpx_client  # noqa: SLF001
 
         return self
 
@@ -1283,7 +1305,8 @@ class A2AClientManager:
                     'Accept': 'application/json; charset=utf-8',
                 },
             )
-            return response.status_code == 200
+            http_ok = 200
+            return response.status_code == http_ok
         except Exception as e:
             logger.debug(f'Health check failed for {self.base_url}: {e}')
             return False
@@ -1311,6 +1334,7 @@ class A2AClientManager:
             parts: 전송할 Part 리스트
             include_history: 히스토리 포함 여부
             error_strategy: 에러 처리 전략
+            context_id: 대화 컨텍스트 식별자
 
         Returns:
             UnifiedResponse: 통합 응답

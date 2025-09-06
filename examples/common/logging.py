@@ -49,14 +49,22 @@ class LogCapture:
     class TeeOutput:
         """stdout을 원본과 버퍼 양쪽에 출력하는 클래스."""
         def __init__(self, original, buffer) -> None:
+            """생성자.
+
+            Args:
+                original: 원본 표준 출력 스트림 객체.
+                buffer: 캡처 내용을 저장할 ``io.StringIO`` 버퍼.
+            """
             self.original = original
             self.buffer = buffer
 
         def write(self, data) -> None:
+            """데이터를 원본과 버퍼 모두에 기록합니다."""
             self.original.write(data)
             self.buffer.write(data)
 
         def flush(self) -> None:
+            """양쪽 스트림의 버퍼를 비웁니다."""
             self.original.flush()
             self.buffer.flush()
 

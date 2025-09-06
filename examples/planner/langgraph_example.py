@@ -6,7 +6,7 @@ create_react_agent 기반 API를 사용하여 작업 계획을 수립합니다.
 
 실행 전제 조건:
 - OpenAI API 키가 설정되어 있어야 함
-- o3-mini 추론 모델에 접근 가능해야 함
+- o3-mini 추론 모델에 접근 가능해야 함!! (또는 추론형 모델 다른 것도 괜찮음.)
 """
 
 import asyncio

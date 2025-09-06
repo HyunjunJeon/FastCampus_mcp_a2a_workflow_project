@@ -15,6 +15,7 @@ import structlog
 
 from langchain_core.messages import AIMessage, HumanMessage, filter_messages
 from langchain_core.tools import BaseTool
+from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
@@ -27,7 +28,6 @@ from src.mcp_config_module.mcp_config import (
     MCPServerConfig,
     create_mcp_client_and_tools,
 )
-from langchain_mcp_adapters.client import MultiServerMCPClient
 
 
 logger = structlog.get_logger(__name__)

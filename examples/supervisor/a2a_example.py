@@ -87,7 +87,9 @@ A2A 프로토콜을 통해 Supervisor Agent와 통신하는 예제입니다.
 #         print("[정보] A2A 프로토콜을 통해 워크플로우 실행 중...")
 #         print(f"   요청: {request}...")
 
-#         result = await client.send_data(input_data)
+#         # from a2a.types import Part, DataPart
+#         # 최신 API: send_parts 사용 예시
+#         result = await client.send_parts(parts=[Part(root=DataPart(data=input_data))])
 
 #         # TODO: 여기서 중간중간 결과가 더 나올 수 있도록 A2A Client 에서 수정 필요.
 #         # 결과 처리

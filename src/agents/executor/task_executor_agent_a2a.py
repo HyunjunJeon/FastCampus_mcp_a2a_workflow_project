@@ -66,13 +66,6 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
         # Agent will be initialized asynchronously
         self.graph = None
         self.agent_type = 'Executor'
-        self.NODE_NAMES = {
-            'analyze_task': 'analyze_task',
-            'prepare_environment': 'prepare_environment',
-            'execute_task': 'execute_task',
-            'validate_results': 'validate_results',
-            'handle_error': 'handle_error',
-        }
 
         logger.info('TaskExecutorA2AAgent initialized')
 
@@ -179,23 +172,23 @@ class TaskExecutorA2AAgent(BaseA2AAgent):
             # Prepare input for LangGraph agent
             lg_input = {
                 'messages': [HumanMessage(content=prompt_text)],
-                'timeout': 300,
-                'max_retries': 3,
-                'workflow_phase': 'initializing',
-                'should_continue': True,
-                'retry_count': 0,
-                'current_step_index': 0,
-                'execution_plan': [],
-                'completed_steps': [],
-                'failed_steps': [],
-                'execution_results': [],
-                'notion_operations': [],
-                'working_files': [],
-                'created_files': [],
-                'modified_files': [],
-                'intermediate_results': [],
-                'total_execution_time': 0,
-                'tool_usage_stats': {},
+                # 'timeout': 300,
+                # 'max_retries': 3,
+                # 'workflow_phase': 'initializing',
+                # 'should_continue': True,
+                # 'retry_count': 0,
+                # 'current_step_index': 0,
+                # 'execution_plan': [],
+                # 'completed_steps': [],
+                # 'failed_steps': [],
+                # 'execution_results': [],
+                # 'notion_operations': [],
+                # 'working_files': [],
+                # 'created_files': [],
+                # 'modified_files': [],
+                # 'intermediate_results': [],
+                # 'total_execution_time': 0,
+                # 'tool_usage_stats': {},
             }
 
             # Add configuration (use provided thread_id or conversation_id)

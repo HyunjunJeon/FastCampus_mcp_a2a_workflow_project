@@ -69,7 +69,7 @@ async def create_executor_agent(
 
         model = model or init_chat_model(
             model='gpt-4.1-mini',
-            temperature=0.2,
+            temperature=0.1,
             model_provider='openai',
         )
 

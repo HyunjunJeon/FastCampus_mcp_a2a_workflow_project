@@ -12,10 +12,13 @@ Agent는 별도 프로세스로 실행되며, A2A 클라이언트를 통해 원�
 import asyncio
 import json
 import sys
+import traceback
 
 from pathlib import Path
 
 import httpx
+
+from a2a.types import DataPart, Part
 
 
 # 프로젝트 루트를 Python 경로에 추가
@@ -144,51 +147,50 @@ async def test_simple_planning():
         request = "Tesla 주식을 분석하고 거래 추천을 제공하는 계획을 수립해주세요"
         print(f"\n요청: {request}")
 
-        # 메시지 형식으로 데이터 전송
-        result = await client_manager.send_data({
-            "messages": [
-                {"role": "user", "content": request}
-            ],
-            "user_request": request
-        })
+        # 데이터 Part로 전송 (A2A 표준) - send_parts 사용
+        resp = await client_manager.send_parts(
+            parts=[
+                Part(root=DataPart(data={
+                    "messages": [{"role": "user", "content": request}],
+                    "user_request": request
+                }))
+            ]
+        )
 
         # 결과 파싱
-        if result.get("success"):
-            data = result.get("data_parts", [])
-            if data and isinstance(data[0], dict):
-                plan_result = data[0]
+        data = resp.merged_data if resp.merged_data else (resp.data_parts[0] if resp.data_parts else None)
+        if isinstance(data, dict):
+            plan_result = data
+            if "result" in plan_result:
+                plan_data = plan_result["result"]
 
-                if "result" in plan_result:
-                    plan_data = plan_result["result"]
+                print("\n[성공] 계획 생성됨:")
 
-                    print("\n[성공] 계획 생성됨:")
+                # 계획 작업 표시
+                if "plan" in plan_data and isinstance(plan_data["plan"], list):
+                    print(f"\n작업 ({len(plan_data['plan'])}개):")
+                    for task in plan_data["plan"]:
+                        print(f"\n  단계 {task['step_number']}:")
+                        print(f"    에이전트: {task['agent_to_use']}")
+                        print(f"    작업: {task['prompt']}")
+                        if task['dependencies']:
+                            print(f"    의존성: {task['dependencies']}")
 
-                    # 계획 작업 표시
-                    if "plan" in plan_data:
-                        print(f"\n작업 ({len(plan_data['plan'])}개):")
-                        for task in plan_data["plan"]:
-                            print(f"\n  단계 {task['step_number']}:")
-                            print(f"    에이전트: {task['agent_to_use']}")
-                            print(f"    작업: {task['prompt']}")
-                            if task['dependencies']:
-                                print(f"    의존성: {task['dependencies']}")
+                # 메타데이터 표시
+                if "metadata" in plan_data:
+                    meta = plan_data["metadata"]
+                    print("\n계획 메타데이터:")
+                    print(f"    총 작업 수: {meta.get('total_tasks', 0)}")
+                    print(f"    복잡도 점수: {meta.get('complexity_score', 0):.2f}")
+                    print(f"    예상 소요 시간: {meta.get('estimated_duration', 0)}초")
 
-                    # 메타데이터 표시
-                    if "metadata" in plan_data:
-                        meta = plan_data["metadata"]
-                        print("\n계획 메타데이터:")
-                        print(f"    총 작업 수: {meta.get('total_tasks', 0)}")
-                        print(f"    복잡도 점수: {meta.get('complexity_score', 0):.2f}")
-                        print(f"    예상 소요 시간: {meta.get('estimated_duration', 0)}초")
-
-                    return plan_data
+                return plan_data
 
         print("[오류] 유효한 계획이 반환되지 않음")
         return None
 
     except Exception as e:
         print(f"[오류] A2A 계획 수립 중 오류: {e}")
-        import traceback
         traceback.print_exc()
         return None
 
@@ -223,62 +225,62 @@ async def test_complex_planning():
         6. 각 포지션의 진입 및 청산 전략 수립
         """
 
-        print(f"\n복잡한 요청: {request[:100]}...")
+        print(f"\n복잡한 요청: {request}")
 
-        result = await client_manager.send_data({
-            "messages": [
-                {"role": "user", "content": request}
-            ],
-            "user_request": request
-        })
+        resp = await client_manager.send_parts(
+            parts=[
+                Part(root=DataPart(data={
+                    "messages": [{"role": "user", "content": request}],
+                    "user_request": request
+                }))
+            ]
+        )
 
-        if result.get("success"):
-            data = result.get("data_parts", [])
-            if data and isinstance(data[0], dict):
-                plan_result = data[0]
+        data = resp.merged_data if resp.merged_data else (resp.data_parts[0] if resp.data_parts else None)
+        if isinstance(data, dict):
+            plan_result = data
+            if "result" in plan_result:
+                plan_data = plan_result["result"]
 
-                if "result" in plan_result:
-                    plan_data = plan_result["result"]
+                print("\n[성공] 복잡한 계획 생성됨:")
 
-                    print("\n[성공] 복잡한 계획 생성됨:")
+                # 에이전트별 작업 분배 분석
+                if "agent_assignments" in plan_data:
+                    assignments = plan_data["agent_assignments"]
+                    print("\n에이전트 작업 분배:")
+                    for agent, task_ids in assignments.items():
+                        print(f"    {agent}: {len(task_ids)}개 작업")
 
-                    # 에이전트별 작업 분배 분석
-                    if "agent_assignments" in plan_data:
-                        assignments = plan_data["agent_assignments"]
-                        print("\n에이전트 작업 분배:")
-                        for agent, task_ids in assignments.items():
-                            print(f"    {agent}: {len(task_ids)}개 작업")
+                # 의존성 분석
+                if "plan" in plan_data:
+                    dep_count = sum(1 for t in plan_data["plan"] if t["dependencies"])
+                    parallel_count = sum(1 for t in plan_data["plan"] if not t["dependencies"])
 
-                    # 의존성 분석
-                    if "plan" in plan_data:
-                        dep_count = sum(1 for t in plan_data["plan"] if t["dependencies"])
-                        parallel_count = sum(1 for t in plan_data["plan"] if not t["dependencies"])
+                    print("\n작업 의존성:")
+                    print(f"    순차 작업: {dep_count}개")
+                    print(f"    병렬 작업: {parallel_count}개")
 
-                        print("\n작업 의존성:")
-                        print(f"    순차 작업: {dep_count}개")
-                        print(f"    병렬 작업: {parallel_count}개")
+                    # 중요 경로 찾기
+                    max_chain = 0
+                    for task in plan_data["plan"]:
+                        chain_length = 1
+                        deps = task["dependencies"]
+                        while deps:
+                            chain_length += 1
+                            # 의존성이 있는 작업들 찾기
+                            next_deps = []
+                            for dep in deps:
+                                dep_num = int(dep.replace("task_", ""))
+                                dep_task = next((t for t in plan_data["plan"]
+                                                if t["step_number"] == dep_num), None)
+                                if dep_task:
+                                    next_deps.extend(dep_task["dependencies"])
+                            deps = next_deps
+                        max_chain = max(max_chain, chain_length)
 
-                        # 중요 경로 찾기
-                        max_chain = 0
-                        for task in plan_data["plan"]:
-                            chain_length = 1
-                            deps = task["dependencies"]
-                            while deps:
-                                chain_length += 1
-                                # 의존성이 있는 작업들 찾기
-                                next_deps = []
-                                for dep in deps:
-                                    dep_num = int(dep.replace("task_", ""))
-                                    dep_task = next((t for t in plan_data["plan"]
-                                                    if t["step_number"] == dep_num), None)
-                                    if dep_task:
-                                        next_deps.extend(dep_task["dependencies"])
-                                deps = next_deps
-                            max_chain = max(max_chain, chain_length)
+                    print(f"    중요 경로 길이: {max_chain}단계")
 
-                        print(f"    중요 경로 길이: {max_chain}단계")
-
-                    return plan_data
+                return plan_data
 
         print("[오류] 복잡한 계획 수립 실패")
         return None
@@ -291,19 +293,6 @@ async def test_complex_planning():
         await client_manager.close()
 
 
-async def run_server_check():
-    """서버 실행 상태 확인."""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "http://localhost:8001/health",
-                timeout=2.0
-            )
-            return response.status_code == 200
-    except:
-        return False
-
-
 async def main() -> None:
     """메인 실행 함수."""
     # 로그 캡처 시작
@@ -314,37 +303,14 @@ async def main() -> None:
         print_section("Planner Agent - A2A 프로토콜 예제")
         print("A2A 프로토콜을 통해 원격 Planner Agent와 통신합니다.")
 
-        # 서버 실행 상태 확인
-        server_running = await run_server_check()
-
-        if not server_running:
-            print("[오류] Planner Agent 서버가 실행되지 않았습니다!")
-            print("\n서버를 시작하려면 다른 터미널에서 다음 명령을 실행하세요:")
-            print("   export PYTHONPATH='${PWD}/src'")
-            print("   export OPENAI_API_KEY='your-key-here'")
-            print("   python -m agents.planner")
-            print("\n또는 uv 사용:")
-            print("   uv run python -m agents.planner")
-            return
-
-        print("[성공] 서버가 포트 8001에서 실행 중입니다\n")
-
         # 테스트 실행
         all_results = []
 
-        # 테스트 1: 에이전트 카드
-        result1 = await test_agent_card()
-        all_results.append(result1)
-
-        # 테스트 2: 스키마 엔드포인트
-        result2 = await test_schema_endpoint()
-        all_results.append(result2)
-
-        # 테스트 3: 단순 계획 수립
+        # 테스트 1: 단순 계획 수립
         result3 = await test_simple_planning()
         all_results.append(result3)
 
-        # 테스트 4: 복잡한 계획 수립
+        # 테스트 2: 복잡한 계획 수립
         result4 = await test_complex_planning()
         all_results.append(result4)
 
@@ -386,7 +352,6 @@ async def main() -> None:
 
     except Exception as e:
         print(f"\n❌ 실행 중 오류 발생: {e!s}")
-        import traceback
         traceback.print_exc()
 
     finally:

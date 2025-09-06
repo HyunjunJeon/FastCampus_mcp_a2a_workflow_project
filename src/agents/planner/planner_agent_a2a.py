@@ -19,6 +19,9 @@ from a2a.types import AgentCard
 from langchain_core.language_models import BaseChatModel
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 from src.a2a_integration.a2a_lg_server_utils import (
     build_a2a_starlette_application,
@@ -470,6 +473,20 @@ def main() -> None:
             handler=handler
         )
 
+        # Health 체크 엔드포인트 추가 (Starlette 애플리케이션에 직접 주입)
+        app = server_app.build()
+
+        async def health_check(request: Request) -> JSONResponse:  # type: ignore[unused-argument]
+            return JSONResponse({
+                'status': 'healthy',
+                'agent': 'PlannerAgent',
+                'timestamp': datetime.now(pytz.UTC).isoformat(),
+            })
+
+        app.router.routes.append(
+            Route('/health', health_check, methods=['GET'])
+        )
+
         # 서버 시작 정보 로깅
         logger.info(f"✅ PlannerAgent A2A server starting at {url} with CORS enabled")
         logger.info(f"📋 Agent Card URL: {url}/.well-known/agent-card.json")  # A2A 표준 메타데이터 엔드포인트
@@ -477,7 +494,7 @@ def main() -> None:
 
         # uvicorn 서버 직접 실행
         config = uvicorn.Config(
-            server_app.build(),
+            app,
             host=host,
             port=port,
             log_level="info",

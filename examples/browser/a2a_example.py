@@ -18,13 +18,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from a2a.types import DataPart
+from a2a.types import DataPart, Part
 
-# 프로젝트 루트를 Python 경로에 추가
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
 
-from src.a2a_integration.a2a_lg_client_utils import A2AClientManager
+# A2A 클라이언트 유틸 임포트 (경로 이슈가 있을 경우 대비)
+try:
+    from src.a2a_integration.a2a_lg_client_utils import A2AClientManager
+except Exception:
+    project_root = Path(__file__).parent.parent.parent
+    sys.path.insert(0, str(project_root))
+    from src.a2a_integration.a2a_lg_client_utils import A2AClientManager
 
 
 def print_section(title: str) -> None:
@@ -145,13 +148,16 @@ async def test_streaming_vs_polling(
             streaming=True,
             retry_delay=2.0
         ) as client_manager:
-            streaming_result = await client_manager.send_data_with_full_messages(input_data)
+            resp = await client_manager.send_parts(parts=[Part(root=DataPart(data=input_data))])
+            streaming_result = resp.merged_data if resp.merged_data else (resp.data_parts[0] if resp.data_parts else {})
+            if isinstance(streaming_result, dict) and 'status' not in streaming_result:
+                streaming_result['status'] = 'completed' if streaming_result.get('success') else 'failed'
 
         streaming_duration = time.time() - start_time
         results["streaming"] = {
             "success": True,
             "duration": streaming_duration,
-            "result": streaming_result if isinstance(streaming_result, list) else [streaming_result]
+            "result": [streaming_result]
         }
         print(f"    ✅ 스트리밍 완료 ({streaming_duration:.2f}초)")
 
@@ -170,13 +176,16 @@ async def test_streaming_vs_polling(
             base_url=browser_url,
             streaming=False
         ) as client_manager:
-            polling_result = await client_manager.send_data_with_full_messages(input_data)
+            resp = await client_manager.send_parts(parts=[Part(root=DataPart(data=input_data))])
+            polling_result = resp.merged_data if resp.merged_data else (resp.data_parts[0] if resp.data_parts else {})
+            if isinstance(polling_result, dict) and 'status' not in polling_result:
+                polling_result['status'] = 'completed' if polling_result.get('success') else 'failed'
 
         polling_duration = time.time() - start_time
         results["polling"] = {
             "success": True,
             "duration": polling_duration,
-            "result": polling_result if isinstance(polling_result, list) else [polling_result]
+            "result": [polling_result]
         }
         print(f"    ✅ 폴링 완료 ({polling_duration:.2f}초)")
 
@@ -227,7 +236,8 @@ async def run_a2a_interface_tests(
     try:
         # execute_for_a2a 간접 테스트 (A2A 호출을 통해)
         async with A2AClientManager(base_url=browser_url) as client_manager:
-            response = await client_manager.send_data_with_full_messages(input_data)
+            resp = await client_manager.send_parts(parts=[Part(root=DataPart(data=input_data))])
+            response = resp.merged_data if resp.merged_data else (resp.data_parts[0] if resp.data_parts else {})
 
         test_results["execute_for_a2a"]["tested"] = True
         test_results["execute_for_a2a"]["success"] = response is not None
@@ -237,6 +247,9 @@ async def run_a2a_interface_tests(
             final_response = response[-1]
         else:
             final_response = response
+        if isinstance(final_response, dict):
+            final_response.setdefault('status', 'completed' if final_response.get('success') else 'failed')
+            final_response.setdefault('agent_type', 'browser')
 
         validation = validate_a2a_output(final_response, "browser")
         test_results["a2a_output_format"]["tested"] = True
@@ -259,9 +272,9 @@ async def run_a2a_interface_tests(
 
     except Exception as e:
         print(f"    ❌ A2A 인터페이스 테스트 실패: {e!s}")
-        for test_name in test_results:
-            if not test_results[test_name]["tested"]:
-                test_results[test_name]["error"] = str(e)
+        for _test_name, test_info in test_results.items():
+            if not test_info["tested"]:
+                test_info["error"] = str(e)
 
     return test_results
 
@@ -318,11 +331,12 @@ async def call_browser_via_a2a(
     # 폴링 모드 사용
     async with A2AClientManager(base_url=browser_url) as client_manager:
         try:
-            response_data = await client_manager.send_parts(parts=[DataPart(data=input_data)])
-
-            if isinstance(response_data, list) and response_data:
-                return response_data[-1]
-            return response_data
+            resp = await client_manager.send_parts(parts=[Part(root=DataPart(data=input_data))])
+            if resp.merged_data:
+                return resp.merged_data
+            if resp.data_parts:
+                return resp.data_parts[0]
+            return {"success": False, "error": "No data returned"}
 
         except Exception as e:
             print(f"❌ A2A 호출 실패: {e!s}")
