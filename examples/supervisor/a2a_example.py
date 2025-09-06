@@ -368,53 +368,12 @@ A2A 프로토콜을 통해 Supervisor Agent와 통신하는 예제입니다.
 #         result5 = await test_full_integration_workflow()
 #         all_results.append(result5)
 
-#         # 3. 결과 요약
-#         print_section("테스트 결과 요약")
-
-#         successful_tests = sum(1 for r in all_results if r.get("success"))
-#         total_tests = len(all_results)
-
-#         print(f"✨ 테스트 성공률: {successful_tests}/{total_tests} ({successful_tests/total_tests*100:.1f}%)")
-
-
-#         for i, result in enumerate(all_results):
-#             status = "✅" if result.get("success") else "❌"
-#             context_id = result.get("context_id", "unknown")
-#             agents = result.get("agents_executed", [])
-#             print(f"{status} 테스트 {i+1} ({context_id}) - 에이전트: {agents}")
-
-#         # 4. 전체 결과를 JSON 파일로 저장
-#         output_dir = Path("../../logs/examples/a2a")
-#         output_dir.mkdir(parents=True, exist_ok=True)
-#         output_file = output_dir / get_result_filename("supervisor_a2a_result")
-
-#         with Path(output_file).open("w", encoding="utf-8") as f:
-#             json.dump(all_results, f, ensure_ascii=False, indent=2)
-
-#         print(f"\n전체 결과가 {output_file}에 저장되었습니다.")
-
 #         print_section("테스트 완료")
-#         print("\n🎯 Supervisor Agent A2A 핵심 기능:")
-#         print("  - 플래너 결과 기반 동적 에이전트 선택")
-#         print("  - 컨텍스트 전달을 통한 순차적 에이전트 실행")
-#         print("  - 다중 에이전트 결과 통합")
-#         print("  - A2A 프로토콜 기반 에이전트 간 통신")
 
 #     except Exception as e:
 #         print(f"\n❌ 실행 중 오류 발생: {e!s}")
 #         import traceback
 #         traceback.print_exc()
-
-#     finally:
-#         try:
-#             log_capture.stop_capture()
-#             log_dir = Path("../../logs/examples/a2a")
-#             log_dir.mkdir(parents=True, exist_ok=True)
-#             log_filename = log_dir / get_log_filename("supervisor_a2a_log")
-#             log_capture.save_log(str(log_filename))
-#             print(f"\n실행 로그가 {log_filename}에 저장되었습니다.")
-#         except Exception as log_error:
-#             print(f"\n로그 저장 실패: {log_error}")
 
 
 # if __name__ == "__main__":

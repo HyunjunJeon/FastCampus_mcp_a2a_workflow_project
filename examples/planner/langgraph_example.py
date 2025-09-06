@@ -311,58 +311,11 @@ async def main() -> None:
         result4 = await test_minimum_decomposition()
         all_results.append(result4)
 
-        # 결과 요약
-        print_section("테스트 결과 요약")
-
-        successful_tests = sum(1 for r in all_results if r.get("success"))
-        total_tests = len(all_results)
-
-        print(f"✨ 테스트 성공률: {successful_tests}/{total_tests} ({successful_tests/total_tests*100:.1f}%)")
-
-        test_names = [
-            "단순 요청",
-            "복잡한 워크플로우",
-            "의존성 체인",
-            "최소 분해 검증"
-        ]
-
-        for i, result in enumerate(all_results):
-            status = "✅" if result.get("success") else "❌"
-            print(f"{status} {test_names[i]}")
-
-        # 전체 결과를 JSON 파일로 저장
-        output_dir = Path("../../logs/examples/langgraph")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / get_result_filename("planner_result")
-
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(all_results, f, ensure_ascii=False, indent=2)
-
-        print(f"\n전체 결과가 {output_file}에 저장되었습니다.")
-
         print_section("테스트 완료")
-        print("\n🧠 Planner Agent 핵심 기능:")
-        print("  - o3-mini 추론 모델 활용")
-        print("  - 복잡한 작업의 원자적 단계 분해")
-        print("  - 작업 의존성과 병렬 실행 관리")
-        print("  - 최소 5단계 이상 분해 보장")
-
     except Exception as e:
         print(f"\n❌ 실행 중 오류 발생: {e!s}")
         import traceback
         traceback.print_exc()
-
-    finally:
-        try:
-            log_capture.stop_capture()
-            log_dir = Path("../../logs/examples/langgraph")
-            log_dir.mkdir(parents=True, exist_ok=True)
-            log_filename = log_dir / get_log_filename("planner_langgraph_log")
-            log_capture.save_log(str(log_filename))
-            print(f"\n실행 로그가 {log_filename}에 저장되었습니다.")
-        except Exception as log_error:
-            print(f"\n로그 저장 실패: {log_error}")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

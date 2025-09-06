@@ -176,7 +176,9 @@ Before finalizing any plan, verify:
 - **Caching Strategy**: Reuse expensive computations
 - **Load Distribution**: Balance work across agents
 
-Remember: Your plans directly determine execution success. Every task should have clear purpose, every dependency should be necessary, and every instruction should be actionable. The Supervisor will execute your plan exactly as specified, so precision is paramount."""
+Remember: Your plans directly determine execution success.
+Every task should have clear purpose, every dependency should be necessary, and every instruction should be actionable. 
+The Supervisor will execute your plan exactly as specified, so precision is paramount."""
 
 
 def get_planner_user_prompt(**kwargs) -> str:

@@ -250,7 +250,7 @@ async def test_web_research_integration():
     # 결과 출력
     if result.get("success"):
         print("[성공] 웹 리서치 워크플로우 완료!")
-        print(f"   리서치 결과: {result.get('response', '')[:500]}...")
+        print(f"   리서치 결과: {result.get('response', '')}...")
     else:
         print(f"[실패] 오류: {result.get('error')}")
 
@@ -287,7 +287,7 @@ async def test_full_integration_workflow():
     # 결과 출력
     if result.get("success"):
         print("[성공] 전체 통합 워크플로우 완료!")
-        print(f"   통합 결과: {result.get('response', '')[:600]}...")
+        print(f"   통합 결과: {result.get('response', '')}...")
     else:
         print(f"[실패] 오류: {result.get('error')}")
 
@@ -308,79 +308,27 @@ async def main() -> None:
         print("\n[정보] MCP 서버 상태 확인...")
         await check_mcp_servers("all")
 
-        # 2. 테스트 케이스 실행
-        all_results = []
-
         # 테스트 1: 계획 기반 워크플로우
-        result1 = await test_planning_workflow()
-        all_results.append(result1)
-        await asyncio.sleep(2)  # 서버 과부하 방지
+        # await test_planning_workflow()
+        # await asyncio.sleep(1)  # 서버 과부하 방지
 
-        # 테스트 2: 지식 관리 워크플로우
-        result2 = await test_knowledge_workflow()
-        all_results.append(result2)
-        await asyncio.sleep(2)
+        # # 테스트 2: 지식 관리 워크플로우
+        # await test_knowledge_workflow()
+        # await asyncio.sleep(1)
 
-        # 테스트 3: 데이터 분석 파이프라인
-        result3 = await test_data_analysis_pipeline()
-        all_results.append(result3)
-        await asyncio.sleep(2)
+        # # 테스트 3: 웹 리서치 통합
+        # await test_web_research_integration()
+        # await asyncio.sleep(1)
 
-        # 테스트 4: 웹 리서치 통합
-        result4 = await test_web_research_integration()
-        all_results.append(result4)
-        await asyncio.sleep(2)
-
-        # 테스트 5: 전체 통합 워크플로우
-        result5 = await test_full_integration_workflow()
-        all_results.append(result5)
-
-        # 3. 결과 요약
-        print_section("테스트 결과 요약")
-
-        successful_tests = sum(1 for r in all_results if r.get("success"))
-        total_tests = len(all_results)
-
-        print(f"✨ 테스트 성공률: {successful_tests}/{total_tests} ({successful_tests/total_tests*100:.1f}%)")
-
-
-        for i, result in enumerate(all_results):
-            status = "✅" if result.get("success") else "❌"
-            context_id = result.get("context_id", "unknown")
-            print(f"{status} 테스트 {i+1} ({context_id})")
-
-        # 4. 전체 결과를 JSON 파일로 저장
-        output_dir = Path("../../logs/examples/langgraph")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / get_result_filename("supervisor_result")
-
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(all_results, f, ensure_ascii=False, indent=2)
-
-        print(f"\n전체 결과가 {output_file}에 저장되었습니다.")
+        # 테스트 4: 전체 통합 워크플로우
+        await test_full_integration_workflow()
 
         print_section("테스트 완료")
-        print("\n🎯 Supervisor Agent 핵심 기능:")
-        print("  - 자동 하위 에이전트 선택 및 조율")
-        print("  - 복잡한 작업 분해 및 실행")
-        print("  - 결과 통합 및 최종 응답 생성")
-        print("  - 에이전트 간 협업 관리")
 
     except Exception as e:
         print(f"\n❌ 실행 중 오류 발생: {e!s}")
         import traceback
         traceback.print_exc()
-
-    finally:
-        try:
-            log_capture.stop_capture()
-            log_dir = Path("../../logs/examples/langgraph")
-            log_dir.mkdir(parents=True, exist_ok=True)
-            log_filename = log_dir / get_log_filename("supervisor_langgraph_log")
-            log_capture.save_log(str(log_filename))
-            print(f"\n실행 로그가 {log_filename}에 저장되었습니다.")
-        except Exception as log_error:
-            print(f"\n로그 저장 실패: {log_error}")
 
 
 if __name__ == "__main__":

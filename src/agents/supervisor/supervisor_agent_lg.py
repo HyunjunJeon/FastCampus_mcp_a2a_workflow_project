@@ -16,7 +16,8 @@ from src.agents.prompts import get_prompt
 
 
 async def create_supervisor_agent_lg(
-    model: ChatOpenAI | None = None, is_debug: bool = False
+    model: ChatOpenAI | None = None,
+    is_debug: bool = False
 ) -> CompiledStateGraph:
     """Supervisor Agent를 생성합니다.
 

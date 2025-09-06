@@ -171,7 +171,7 @@ class CustomSupervisorAgentA2A(AgentExecutor):
         context: RequestContext,
         event_queue: EventQueue,
     ) -> None:
-        """Execute supervisor workflow using new A2A interface.
+        """Execute supervisor workflow using A2A interface.
 
         Uses the standardized SupervisorA2AAgent which handles all sub-agent
         orchestration internally.
