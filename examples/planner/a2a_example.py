@@ -6,7 +6,7 @@ Agent는 별도 프로세스로 실행되며, A2A 클라이언트를 통해 원�
 
 실행 전제 조건:
 1. Planner A2A 서버가 실행되어 있어야 함 (포트 8001)
-2. OpenAI API 키가 설정되어 있어야 함
+2. OpenAI API 키가 설정되어 있어야 함(o3-mini 모델 사용)
 """
 
 import asyncio
@@ -128,7 +128,7 @@ async def test_simple_planning():
 
     A2A를 통한 기본적인 계획 수립을 테스트합니다.
     """
-    print("테스트 3: A2A를 통한 단순 계획 수립")
+    print("테스트 1: A2A를 통한 단순 계획 수립")
     print("-"*40)
 
     # A2A 클라이언트 생성
@@ -156,38 +156,9 @@ async def test_simple_planning():
                 }))
             ]
         )
+        print(resp)
+        return resp
 
-        # 결과 파싱
-        data = resp.merged_data if resp.merged_data else (resp.data_parts[0] if resp.data_parts else None)
-        if isinstance(data, dict):
-            plan_result = data
-            if "result" in plan_result:
-                plan_data = plan_result["result"]
-
-                print("\n[성공] 계획 생성됨:")
-
-                # 계획 작업 표시
-                if "plan" in plan_data and isinstance(plan_data["plan"], list):
-                    print(f"\n작업 ({len(plan_data['plan'])}개):")
-                    for task in plan_data["plan"]:
-                        print(f"\n  단계 {task['step_number']}:")
-                        print(f"    에이전트: {task['agent_to_use']}")
-                        print(f"    작업: {task['prompt']}")
-                        if task['dependencies']:
-                            print(f"    의존성: {task['dependencies']}")
-
-                # 메타데이터 표시
-                if "metadata" in plan_data:
-                    meta = plan_data["metadata"]
-                    print("\n계획 메타데이터:")
-                    print(f"    총 작업 수: {meta.get('total_tasks', 0)}")
-                    print(f"    복잡도 점수: {meta.get('complexity_score', 0):.2f}")
-                    print(f"    예상 소요 시간: {meta.get('estimated_duration', 0)}초")
-
-                return plan_data
-
-        print("[오류] 유효한 계획이 반환되지 않음")
-        return None
 
     except Exception as e:
         print(f"[오류] A2A 계획 수립 중 오류: {e}")
@@ -203,7 +174,7 @@ async def test_complex_planning():
 
     의존성이 있는 복잡한 계획 수립을 테스트합니다.
     """
-    print("테스트 4: 의존성이 있는 복잡한 계획 수립")
+    print("테스트 2: 의존성이 있는 복잡한 계획 수립")
     print("-"*40)
 
     client_manager = A2AClientManager(
@@ -236,54 +207,8 @@ async def test_complex_planning():
             ]
         )
 
-        data = resp.merged_data if resp.merged_data else (resp.data_parts[0] if resp.data_parts else None)
-        if isinstance(data, dict):
-            plan_result = data
-            if "result" in plan_result:
-                plan_data = plan_result["result"]
-
-                print("\n[성공] 복잡한 계획 생성됨:")
-
-                # 에이전트별 작업 분배 분석
-                if "agent_assignments" in plan_data:
-                    assignments = plan_data["agent_assignments"]
-                    print("\n에이전트 작업 분배:")
-                    for agent, task_ids in assignments.items():
-                        print(f"    {agent}: {len(task_ids)}개 작업")
-
-                # 의존성 분석
-                if "plan" in plan_data:
-                    dep_count = sum(1 for t in plan_data["plan"] if t["dependencies"])
-                    parallel_count = sum(1 for t in plan_data["plan"] if not t["dependencies"])
-
-                    print("\n작업 의존성:")
-                    print(f"    순차 작업: {dep_count}개")
-                    print(f"    병렬 작업: {parallel_count}개")
-
-                    # 중요 경로 찾기
-                    max_chain = 0
-                    for task in plan_data["plan"]:
-                        chain_length = 1
-                        deps = task["dependencies"]
-                        while deps:
-                            chain_length += 1
-                            # 의존성이 있는 작업들 찾기
-                            next_deps = []
-                            for dep in deps:
-                                dep_num = int(dep.replace("task_", ""))
-                                dep_task = next((t for t in plan_data["plan"]
-                                                if t["step_number"] == dep_num), None)
-                                if dep_task:
-                                    next_deps.extend(dep_task["dependencies"])
-                            deps = next_deps
-                        max_chain = max(max_chain, chain_length)
-
-                    print(f"    중요 경로 길이: {max_chain}단계")
-
-                return plan_data
-
-        print("[오류] 복잡한 계획 수립 실패")
-        return None
+        print(resp)
+        return resp
 
     except Exception as e:
         print(f"[오류] 오류 발생: {e}")
@@ -314,56 +239,11 @@ async def main() -> None:
         result4 = await test_complex_planning()
         all_results.append(result4)
 
-        # 결과 요약
-        print_section("테스트 결과 요약")
-
-        successful_tests = sum(1 for r in all_results if r is not None)
-        total_tests = len(all_results)
-
-        print(f"✨ 테스트 성공률: {successful_tests}/{total_tests} ({successful_tests/total_tests*100:.1f}%)")
-
-        test_names = [
-            "에이전트 카드 조회",
-            "스키마 엔드포인트",
-            "단순 계획 수립",
-            "복잡한 계획 수립"
-        ]
-
-        for i, result in enumerate(all_results):
-            status = "✅" if result is not None else "❌"
-            print(f"{status} {test_names[i]}")
-
-        # 전체 결과를 JSON 파일로 저장
-        output_dir = Path("../../logs/examples/a2a")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_file = output_dir / get_result_filename("planner_a2a_result")
-
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(all_results, f, ensure_ascii=False, indent=2)
-
-        print(f"\n전체 결과가 {output_file}에 저장되었습니다.")
-
         print_section("테스트 완료")
-        print("\n🧠 Planner Agent A2A 핵심 기능:")
-        print("  - HTTP 서비스로 원격 계획 수립")
-        print("  - 표준 A2A 프로토콜 지원")
-        print("  - 에이전트 카드 및 스키마 제공")
-        print("  - 복잡한 의존성 분석")
 
     except Exception as e:
         print(f"\n❌ 실행 중 오류 발생: {e!s}")
         traceback.print_exc()
-
-    finally:
-        try:
-            log_capture.stop_capture()
-            log_dir = Path("../../logs/examples/a2a")
-            log_dir.mkdir(parents=True, exist_ok=True)
-            log_filename = log_dir / get_log_filename("planner_a2a_log")
-            log_capture.save_log(str(log_filename))
-            print(f"\n실행 로그가 {log_filename}에 저장되었습니다.")
-        except Exception as log_error:
-            print(f"\n로그 저장 실패: {log_error}")
 
 
 if __name__ == "__main__":

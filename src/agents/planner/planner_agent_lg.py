@@ -38,7 +38,7 @@ async def create_planner_agent(
     Planner는 도구 없이 순수 프롬프트 기반으로 작업을 분해하고 계획을 수립합니다.
 
     Args:
-        model: LLM 모델 (기본값: gpt-4o-mini)
+        model: LLM 모델 (기본값: o3-mini)
         is_debug: 디버그 모드 여부
         checkpointer: 체크포인터 (기본값: MemorySaver)
 

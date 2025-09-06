@@ -26,6 +26,7 @@
 """
 
 import asyncio
+import base64
 import hashlib
 import json
 import logging
@@ -82,6 +83,18 @@ class TextResponse:
     metadata: dict[str, Any] = field(default_factory=dict)
     event_count: int = 0
 
+    def to_dict(self) -> dict[str, Any]:
+        """JSON 직렬화 가능한 dict로 변환합니다.
+
+        반환되는 객체는 ``json.dumps`` 로 바로 직렬화할 수 있습니다.
+        """
+        return {
+            'text': self.text,
+            'streaming_chunks': list(self.streaming_chunks),
+            'metadata': dict(self.metadata),
+            'event_count': int(self.event_count),
+        }
+
 
 @dataclass
 class DataResponse:
@@ -91,6 +104,15 @@ class DataResponse:
     merged_data: dict[str, Any] | None = None
     validation_errors: list[str] = field(default_factory=list)
     event_count: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON 직렬화 가능한 dict로 변환합니다."""
+        return {
+            'data_parts': self.data_parts,
+            'merged_data': self.merged_data,
+            'validation_errors': list(self.validation_errors),
+            'event_count': int(self.event_count),
+        }
 
 
 @dataclass
@@ -102,6 +124,31 @@ class FileResponse:
     mime_type: str = 'application/octet-stream'
     size: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self, *, encode_bytes: bool = False) -> dict[str, Any]:
+        """JSON 직렬화 가능한 dict로 변환합니다.
+
+        Args:
+            encode_bytes: True 인 경우 ``file_bytes`` 를 base64 문자열로 포함합니다.
+                          False 인 경우 바이트 길이만 포함합니다.
+        """
+        bytes_repr: Any
+        if self.file_bytes is None:
+            bytes_repr = None
+        else:
+            bytes_repr = (
+                base64.b64encode(self.file_bytes).decode('ascii')
+                if encode_bytes
+                else len(self.file_bytes)
+            )
+
+        return {
+            'file_uri': self.file_uri,
+            'file_bytes': bytes_repr,
+            'mime_type': self.mime_type,
+            'size': int(self.size),
+            'metadata': dict(self.metadata),
+        }
 
 
 @dataclass
@@ -117,6 +164,64 @@ class UnifiedResponse:
     event_count: int = 0
     errors: list['PartError'] = field(default_factory=list)
 
+    @staticmethod
+    def _serialize_history(history: list[Any] | None) -> list[dict[str, Any]] | None:
+        """히스토리를 JSON-직렬화 가능한 축약 형태로 변환합니다.
+
+        외부 타입(a2a.types.Message 등)의 전체 스키마를 복제하지 않고,
+        디버깅과 요약에 유용한 최소 정보만을 보존합니다.
+        """
+        if not history:
+            return None
+
+        serialized: list[dict[str, Any]] = []
+        for msg in history:
+            try:
+                role_obj = getattr(msg, 'role', None)
+                role_val = getattr(role_obj, 'value', None)
+                role_str = role_val if isinstance(role_val, str) else str(role_obj)
+
+                parts_info: list[dict[str, Any]] = []
+                parts = getattr(msg, 'parts', None)
+                if parts:
+                    for p in parts:
+                        root = getattr(p, 'root', None)
+                        if root is None:
+                            parts_info.append({'type': 'unknown'})
+                            continue
+                        if hasattr(root, 'text') and getattr(root, 'text'):
+                            text_val = getattr(root, 'text')
+                            parts_info.append({'type': 'text', 'length': len(text_val)})
+                        elif hasattr(root, 'data') and getattr(root, 'data') is not None:
+                            data_val = getattr(root, 'data')
+                            preview: Any
+                            if isinstance(data_val, dict):
+                                preview = list(data_val.keys())[:5]
+                            else:
+                                preview = type(data_val).__name__
+                            parts_info.append({'type': 'data', 'preview': preview})
+                        else:
+                            parts_info.append({'type': 'other'})
+
+                serialized.append({'role': role_str, 'parts': parts_info})
+            except Exception:
+                serialized.append({'role': None, 'parts': []})
+
+        return serialized
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON 직렬화 가능한 dict로 변환합니다."""
+        return {
+            'text_parts': list(self.text_parts),
+            'data_parts': self.data_parts,
+            'file_parts': [fp.to_dict() for fp in self.file_parts],
+            'merged_text': self.merged_text,
+            'merged_data': self.merged_data,
+            'history': self._serialize_history(self.history),
+            'event_count': int(self.event_count),
+            'errors': [e.to_dict() for e in self.errors],
+        }
+
 
 @dataclass
 class PartError:
@@ -126,6 +231,16 @@ class PartError:
     error: Exception
     retry_count: int = 0
     recoverable: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON 직렬화 가능한 dict로 변환합니다."""
+        return {
+            'part_type': self.part_type,
+            'error_type': type(self.error).__name__,
+            'error_message': str(self.error),
+            'retry_count': int(self.retry_count),
+            'recoverable': bool(self.recoverable),
+        }
 
 
 class ErrorStrategy(Enum):

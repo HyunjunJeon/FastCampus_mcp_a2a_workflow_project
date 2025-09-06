@@ -34,20 +34,13 @@ from src.agents.planner.planner_agent_lg import (
     create_planner_agent,
 )
 from src.base.a2a_interface import A2AOutput, A2AStreamBuffer, BaseA2AAgent
-from src.base.base_graph_agent import BaseGraphAgent
 
 
 logger = structlog.get_logger(__name__)
 
 
-class PlannerA2AAgent(BaseA2AAgent, BaseGraphAgent):
+class PlannerA2AAgent(BaseA2AAgent):
     """A2A 통합 플래너 에이전트.
-
-    이 에이전트는 다음을 수행한다:
-    - 사용자 요청을 구조화된 PRD로 파싱
-    - 의존성을 포함한 실행 계획 생성
-    - 적절한 에이전트로 작업 분배
-    - 작업 실행 진행 상황 모니터링
 
     최종적으로 Supervisor 에이전트에 구조화된 작업 계획을 제공한다.
     """
@@ -61,7 +54,7 @@ class PlannerA2AAgent(BaseA2AAgent, BaseGraphAgent):
         """Initialize Planner A2A Agent.
 
         Args:
-            model: LLM model (default: gpt-4o-mini)
+            model: LLM model (default: o3-mini)
             is_debug: Debug mode flag
             check_pointer: Checkpoint manager (default: MemorySaver)
         """
@@ -91,11 +84,7 @@ class PlannerA2AAgent(BaseA2AAgent, BaseGraphAgent):
     async def _ensure_agent(self) -> None:
         """Ensure agent is initialized."""
         if self.agent is None:
-            self.agent = await create_planner_agent(
-                model=self.model,
-                is_debug=self.is_debug,
-                checkpointer=self.check_pointer,
-            )
+            self.agent = await create_planner_agent()
 
     async def execute_for_a2a(
         self, input_dict: dict[str, Any], config: dict[str, Any] | None = None
@@ -111,7 +100,7 @@ class PlannerA2AAgent(BaseA2AAgent, BaseGraphAgent):
         """
         try:
             # Ensure agent is initialized
-            await self._ensure_agent()
+            await self.initialize()
             if self.agent is None:
                 raise RuntimeError('Planner agent is not initialized')
 
@@ -395,7 +384,7 @@ async def create_planner_a2a_agent(
     """Create and initialize a Planner A2A Agent.
 
     Args:
-        model: LLM model (default: gpt-4o-mini)
+        model: LLM model (default: o3-mini)
         is_debug: Debug mode flag
         checkpointer: Checkpoint manager
 

@@ -123,17 +123,27 @@ async def test_complex_workflow():
         if data:
             print("\n[성공] 복잡한 계획 생성됨:")
 
-            # 에이전트별 작업 분배 분석
+            # 에이전트별 작업 분배 분석 (있을 때만 출력)
             if "agent_assignments" in data:
                 assignments = data["agent_assignments"]
                 print("\n에이전트 작업 분배:")
                 for agent_name, task_ids in assignments.items():
                     print(f"    {agent_name}: {len(task_ids)}개 작업")
 
-            # 의존성 분석
-            if "plan" in data:
-                dep_count = sum(1 for t in data["plan"] if t["dependencies"])
-                parallel_count = sum(1 for t in data["plan"] if not t["dependencies"])
+            # 계획(JSON 문자열)을 파싱하여 분석
+            plan_content = data.get("plan", "")
+            plan_json = None
+            if isinstance(plan_content, list):
+                plan_json = plan_content
+            elif isinstance(plan_content, str) and plan_content.strip().startswith('['):
+                try:
+                    plan_json = json.loads(plan_content)
+                except Exception:
+                    plan_json = None
+
+            if plan_json:
+                dep_count = sum(1 for t in plan_json if t.get("dependencies"))
+                parallel_count = sum(1 for t in plan_json if not t.get("dependencies"))
 
                 print("\n작업 의존성:")
                 print(f"    순차 작업: {dep_count}개")
@@ -141,19 +151,21 @@ async def test_complex_workflow():
 
                 # 중요 경로 찾기
                 max_chain = 0
-                for task in data["plan"]:
+                for task in plan_json:
                     chain_length = 1
-                    deps = task["dependencies"]
+                    deps = task.get("dependencies", [])
                     while deps:
                         chain_length += 1
                         # 의존성이 있는 작업들 찾기
                         next_deps = []
                         for dep in deps:
-                            dep_num = int(dep.replace("task_", ""))
-                            dep_task = next((t for t in data["plan"]
-                                            if t["step_number"] == dep_num), None)
+                            try:
+                                dep_num = int(str(dep).replace("task_", ""))
+                            except ValueError:
+                                continue
+                            dep_task = next((t for t in plan_json if t.get("step_number") == dep_num), None)
                             if dep_task:
-                                next_deps.extend(dep_task["dependencies"])
+                                next_deps.extend(dep_task.get("dependencies", []))
                         deps = next_deps
                     max_chain = max(max_chain, chain_length)
 
