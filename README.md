@@ -2,12 +2,6 @@
 
 LangGraph와 MCP를 기반으로 한 에이전트들이 A2A 프로토콜로 상호 통신하여 업무 워크플로를 자동화하는 멀티 에이전트 예제 프로젝트입니다.
 
----
-
-![fc_lecture.png](fc_lecture.png)
-
----
-
 ## 개요
 
 - **목표**: 브라우저 자동화, 메모리, 실행기 등 MCP 도구를 결합하고, LangGraph 기반 Supervisor-Worker 패턴으로 복합 업무를 자동화합니다.

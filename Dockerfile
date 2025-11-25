@@ -24,7 +24,7 @@ COPY pyproject.toml uv.lock ./
 COPY src/ ./src/
 
 # Install dependencies using uv
-RUN uv sync
+RUN uv sync --frozen
 
 # Set Python path and virtual environment
 ENV PYTHONPATH=/app
