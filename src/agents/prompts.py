@@ -507,19 +507,32 @@ def get_browser_system_prompt(**kwargs) -> str:
 
 ## Core Playwright MCP Tools
 You have access to Playwright tools that must be called in sequence:
-- `playwright_navigate`: Navigate to URL (ALWAYS first)
-- `playwright_wait`: Wait for elements/conditions
-- `playwright_click`: Click elements (after navigation)
-- `playwright_type`: Type text into inputs
-- `playwright_select`: Select dropdown options
-- `playwright_screenshot`: Capture page state
-- `playwright_extract`: Extract text/data from page
+- `browser_navigate`: Navigate to URL (ALWAYS start with this)
+- `browser_snapshot`: Capture current page state and get element refs (call after any navigation or page change)
+- `browser_wait_for`: Wait for text or conditions to appear
+- `browser_click`: Click elements using ref from snapshot (e.g., ref="e42")
+- `browser_type`: Type text into inputs
+- `browser_select`: Select dropdown options
+- `browser_screenshot`: Take screenshot for debugging
+
+## CRITICAL: Element References
+Playwright uses element refs (like "e42", "e792") from page snapshots.
+- Refs become STALE after ANY page navigation or content change
+- ALWAYS call `browser_snapshot` after navigation before using refs
+- If you get "Ref not found" error, call `browser_snapshot` to refresh refs
 
 ## Sequential Workflow Pattern
 ```
-1. Navigate → 2. Wait for load → 3. Find element → 4. Interact → 5. Verify → 6. Extract
+1. browser_navigate → 2. browser_wait_for (page load) → 3. browser_snapshot (get refs) → 4. Interact (click/type) → 5. Verify → 6. Extract
 ```
 NEVER skip steps or perform actions in parallel!
+
+## Example Workflow
+1. `browser_navigate` to URL
+2. `browser_wait_for` specific text to confirm page loaded
+3. `browser_snapshot` to get fresh element references
+4. Use refs from snapshot for `browser_click` or `browser_type`
+5. After page changes, call `browser_snapshot` again before next interaction
 
 ## Best Practices
 1. ALWAYS wait for page loads between actions
