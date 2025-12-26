@@ -2,19 +2,82 @@
 
 LangGraph와 MCP를 기반으로 한 에이전트들이 A2A 프로토콜로 상호 통신하여 업무 워크플로를 자동화하는 멀티 에이전트 예제 프로젝트입니다.
 
-## 개요
+[제 강의 전용 할인 페이지](https://fastcampus.co.kr/secret_online_jhjagent)
 
-- **목표**: 브라우저 자동화, 메모리, 실행기 등 MCP 도구를 결합하고, LangGraph 기반 Supervisor-Worker 패턴으로 복합 업무를 자동화합니다.
-- **통신**: 에이전트 간 통신은 표준화된 A2A 프로토콜(JSON-RPC 2.0)을 사용합니다.
-- **컨테이너화**: 모든 에이전트 및 보조 서비스는 Docker로 구동합니다.
+---
 
-## 핵심 구성요소
+## Quick Start (개발환경 설정)
 
-- **Supervisor Agent**: 전체 워크플로를 오케스트레이션합니다.
-- **Planner Agent**: 사용자 요구를 단계별 JSON 계획으로 분해합니다.
-- **Browser Agent**: Playwright MCP를 통해 브라우저 자동화를 수행합니다.
-- **Executor Agent**: Notion MCP, LangChain Sandbox MCP 등 외부 도구 실행을 담당합니다.
-- **Knowledge Agent**: OpenMemory MCP 기반 RAG 검색을 제공합니다.
+> **모든 수강생이 동일한 개발환경을 구성할 수 있도록 `setup.sh` 스크립트를 제공합니다.**
+
+### 1단계: uv 패키지 매니저 설치
+
+[uv](https://docs.astral.sh/uv/)는 Rust로 작성된 초고속 Python 패키지 관리자입니다.
+
+```bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# macOS (Homebrew)
+brew install uv
+
+# Windows (PowerShell)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+설치 후 터미널을 재시작하세요.
+
+### 2단계: 개발환경 자동 설정
+
+```bash
+./setup.sh
+```
+
+이 스크립트는 다음 3가지를 자동으로 수행합니다:
+
+| 단계 | 설명 |
+|------|------|
+| **[1/3] uv 확인** | uv 설치 여부 확인, 미설치 시 안내 후 종료 |
+| **[2/3] 의존성 설치** | `uv sync --frozen` 실행 → `.venv` 생성 및 패키지 설치 |
+| **[3/3] VSCode 설정** | `.vscode/settings.json` 생성 → Python 인터프리터 자동 설정 |
+
+### 3단계: API 키 설정
+
+```bash
+cp .env.example .env
+```
+
+`.env` 파일을 열고 API 키를 입력하세요:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key
+TAVILY_API_KEY=your_tavily_api_key
+SERPER_API_KEY=your_serper_api_key
+```
+
+- [OPENAI_API_KEY 발급](https://platform.openai.com/api-keys)
+- [TAVILY_API_KEY 발급](https://www.tavily.com/)
+- [SERPER_API_KEY 발급](https://serper.dev/)
+
+### 4단계: Docker 환경 시작 (MCP 서버)
+
+```bash
+./docker/mcp_docker.sh build   # 이미지 빌드
+./docker/mcp_docker.sh up      # 서비스 시작
+./docker/mcp_docker.sh test    # 헬스체크
+```
+
+### setup.sh 개별 명령어
+
+```bash
+./setup.sh          # 전체 설정 (기본값)
+./setup.sh uv       # uv 설치 확인만
+./setup.sh sync     # 의존성 설치만
+./setup.sh vscode   # VSCode 설정만
+./setup.sh help     # 도움말
+```
+
+---
 
 ## 프로젝트 구조
 
@@ -38,6 +101,20 @@ LangGraph와 MCP를 기반으로 한 에이전트들이 A2A 프로토콜로 상�
 ├── run-langchain-sandbox-mcp.sh  # LangChain Sandbox MCP 로컬 실행 스크립트
 └── README.md
 ```
+
+## 개요
+
+- **목표**: 브라우저 자동화, 메모리, 실행기 등 MCP 도구를 결합하고, LangGraph 기반 Supervisor-Worker 패턴으로 복합 업무를 자동화합니다.
+- **통신**: 에이전트 간 통신은 표준화된 A2A 프로토콜(JSON-RPC 2.0)을 사용합니다.
+- **컨테이너화**: 모든 에이전트 및 보조 서비스는 Docker로 구동합니다.
+
+## 핵심 구성요소
+
+- **Supervisor Agent**: 전체 워크플로를 오케스트레이션합니다.
+- **Planner Agent**: 사용자 요구를 단계별 JSON 계획으로 분해합니다.
+- **Browser Agent**: Playwright MCP를 통해 브라우저 자동화를 수행합니다.
+- **Executor Agent**: Notion MCP, LangChain Sandbox MCP 등 외부 도구 실행을 담당합니다.
+- **Knowledge Agent**: OpenMemory MCP 기반 RAG 검색을 제공합니다.
 
 ## 실행 방법
 

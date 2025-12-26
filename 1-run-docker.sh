@@ -45,7 +45,7 @@ print_usage() {
     echo "  status      Show status of all services"
     echo "  clean       Stop and remove all containers, networks, and volumes"
     echo "  build       Build all services"
-    echo "  mcp-only    Start only MCP servers (notion-mcp, openmemory-mcp, mem0-store, playwright-mcp)"
+    echo "  mcp-only    Start only MCP servers (notion-mcp, openmemory-mcp, mem0-store, langchain-sandbox-mcp, playwright-mcp)"
     echo "  help        Show this help message"
     echo ""
     echo "Examples:"
@@ -205,7 +205,7 @@ start_mcp_services() {
     
     # First, stop any existing MCP containers for clean start
     print_info "Stopping any existing MCP containers for clean start..."
-    local mcp_services=("mem0-store" "notion-mcp" "openmemory-mcp")
+    local mcp_services=("mem0-store" "notion-mcp" "openmemory-mcp" "langchain-sandbox-mcp")
     $compose_cmd -f "$COMPOSE_FILE" --project-name "$PROJECT_NAME" stop "${mcp_services[@]}"
     $compose_cmd -f "$COMPOSE_FILE" --project-name "$PROJECT_NAME" rm -f "${mcp_services[@]}"
     
@@ -234,8 +234,9 @@ start_mcp_services() {
         
         print_info "MCP services status:"
         print_info "  - Notion MCP: http://localhost:8930"
-        print_info "  - OpenMemory MCP: http://localhost:8765"
+        print_info "  - OpenMemory MCP: http://localhost:8031"
         print_info "  - Qdrant (Mem0 Store): http://localhost:6333"
+        print_info "  - LangChain Sandbox MCP: http://localhost:8035"
         
         if check_playwright_mcp; then
             print_info "  - Playwright MCP: http://localhost:8931 ✓"
@@ -344,23 +345,31 @@ show_status() {
     fi
     
     # Check OpenMemory MCP
-    if check_http_service "http://localhost:8765" 3; then
-        print_success "  ✓ OpenMemory MCP: Running and responding (http://localhost:8765)"
+    if check_http_service "http://localhost:8031" 3; then
+        print_success "  ✓ OpenMemory MCP: Running and responding (http://localhost:8031)"
     else
         print_warning "  ~ OpenMemory MCP: Container running but service may not be ready"
     fi
-    
+
     # Check Qdrant (Mem0 Store)
     if check_http_service "http://localhost:6333" 2; then
         print_success "  ✓ Qdrant (Mem0 Store): Running and responding (http://localhost:6333)"
     else
         print_warning "  ~ Qdrant (Mem0 Store): Container running but service may not be ready"
     fi
-    
+
+    # Check LangChain Sandbox MCP
+    if check_http_service "http://localhost:8035" 3; then
+        print_success "  ✓ LangChain Sandbox MCP: Running and responding (http://localhost:8035)"
+    else
+        print_warning "  ~ LangChain Sandbox MCP: Container running but service may not be ready"
+    fi
+
     echo ""
     print_info "Service URLs for Docker containers:"
     print_info "  - Notion MCP: http://notion-mcp:3000/mcp"
-    print_info "  - OpenMemory MCP: http://openmemory-mcp:8765/mcp"
+    print_info "  - OpenMemory MCP: http://openmemory-mcp:8031/mcp"
+    print_info "  - LangChain Sandbox MCP: http://langchain-sandbox-mcp:8035/mcp"
     print_info "  - Playwright MCP: http://host.docker.internal:8931/mcp"
     
     echo ""
