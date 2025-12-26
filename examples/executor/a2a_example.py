@@ -111,7 +111,7 @@ async def test_a2a_notion_operation() -> dict[str, Any]:
             {"role": "user", "content": "회의록을 Notion에 작성해주세요"}
         ],
         "notion_config": {
-            "title": "2024년 12월 프로젝트 회의록",
+            "title": "2025년 9월 프로젝트 회의록",
             "markdown": """
 ## 참석자
 - 김개발 (PM)
@@ -136,7 +136,7 @@ async def test_a2a_notion_operation() -> dict[str, Any]:
             "parent": parent_obj,
             "properties": {
                 "Type": "Meeting Notes",
-                "Date": "2024-12-10",
+                "Date": "2025-09-10",
                 "Status": "Active"
             }
         }
@@ -433,16 +433,16 @@ async def main() -> None:
         # await test_a2a_code_execution()
 
         # 2. Notion 작업
-        # await test_a2a_notion_operation()
+        await test_a2a_notion_operation()
 
         # 3. 데이터 처리
         # await test_a2a_data_processing()
 
         # 4. 다중 도구 사용
-        # await test_a2a_multi_tool()
+        await test_a2a_multi_tool()
 
         # 5. 복잡한 워크플로우
-        await test_a2a_complex_workflow()
+        # await test_a2a_complex_workflow()
 
         print("\n" + "-" * 40)
         print("[성공] 모든 A2A 테스트 완료!")

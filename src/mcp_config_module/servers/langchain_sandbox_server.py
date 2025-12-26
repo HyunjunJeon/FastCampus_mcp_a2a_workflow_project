@@ -22,7 +22,7 @@ from typing import Any
 import pytz
 import uvicorn
 
-from langchain_sandbox import PyodideSandbox
+from src.sandbox import PyodideSandbox
 from pydantic import BaseModel, Field
 
 from src.mcp_config_module.base_mcp_server import BaseMCPServer

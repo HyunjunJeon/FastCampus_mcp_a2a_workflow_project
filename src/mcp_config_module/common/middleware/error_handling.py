@@ -323,7 +323,11 @@ class ErrorHandlingMiddleware(Middleware):
             logger.log(log_level, log_message)
 
     async def call_tool(
-        self, call_next: Any, tool_name: str, arguments: dict[str, Any], **context
+        self,
+        call_next: Any,
+        tool_name: str,
+        arguments: dict[str, Any],
+        **context,
     ) -> Any:
         """도구 호출 시 에러 처리.
 

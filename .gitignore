@@ -9,12 +9,12 @@ wheels/
 # Test
 tests/
 
-# IDE
-.vscode/
-
 # Virtual environments
 .venv
 node_modules/
+
+# Caches
+*_cache/
 
 # Environment variables
 .env

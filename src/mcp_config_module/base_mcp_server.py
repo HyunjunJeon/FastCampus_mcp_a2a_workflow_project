@@ -65,7 +65,7 @@ class BaseMCPServer(ABC):
         server_instructions: str = '',
         json_response: bool = False,
         shutdown_timeout: float = 30.0,
-        **kwargs
+        **kwargs,
     ):
         """MCP 서버 초기화.
 
@@ -231,7 +231,9 @@ class BaseMCPServer(ABC):
         self.logger.info(
             'CORS is now handled by Starlette CORSMiddleware in create_app()'
         )
-        raise NotImplementedError('CORS middleware is now handled by Starlette CORSMiddleware in create_app()')
+        raise NotImplementedError(
+            'CORS middleware is now handled by Starlette CORSMiddleware in create_app()'
+        )
 
     def get_enabled_middlewares(self) -> list[str]:
         """현재 활성화된 미들웨어 목록을 반환합니다.
@@ -375,12 +377,14 @@ class BaseMCPServer(ABC):
             if not task.done()
         ]
 
-    async def __aenter__(self) -> "BaseMCPServer":
+    async def __aenter__(self) -> 'BaseMCPServer':
         """비동기 컨텍스트 매니저 진입."""
         await self.lifecycle.start()
         return self
 
-    async def __aexit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: Any) -> bool:
+    async def __aexit__(
+        self, exc_type: type | None, exc_val: Exception | None, exc_tb: Any
+    ) -> bool:
         """비동기 컨텍스트 매니저 종료 - 자동 정리."""
         await self.shutdown()
         return False
@@ -419,10 +423,12 @@ class BaseMCPServer(ABC):
 
         self.logger.info('Development CORS configured: allow all origins (*)')
 
-        # FastMCP의 streamable_http_app 생성
-        # 참고: streamable_http_app은 custom_middleware를 직접 지원하지 않음
-        app = self.mcp.streamable_http_app(
+        # FastMCP의 http_app 생성 (streamable-http transport 사용)
+        # fastmcp v2.x에서는 http_app(transport='streamable-http') 사용
+        # 참고: http_app은 custom_middleware를 직접 지원하지 않음
+        app = self.mcp.http_app(
             path=self.MCP_PATH,
+            transport='streamable-http',
         )
 
         # CORS 미들웨어를 Starlette 레벨에서 수동으로 추가

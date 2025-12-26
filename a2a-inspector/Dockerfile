@@ -24,7 +24,7 @@ FROM python:3.12-slim
 WORKDIR /app
 RUN pip install uv
 COPY a2a-inspector/pyproject.toml a2a-inspector/uv.lock ./
-RUN uv sync --no-cache
+RUN uv sync --no-cache --frozen
 RUN uv pip install validators
 COPY a2a-inspector/backend/ ./backend/
 RUN mkdir -p /app/frontend
